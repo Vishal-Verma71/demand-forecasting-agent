@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Table } from "@/components/Table";
+import { LoadingStatus } from "@/components/Spinner";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -45,47 +47,79 @@ export default function Home() {
   const [agentHistory, setAgentHistory] = useState<any[]>([]);
   const [agentLoading, setAgentLoading] = useState(false);
   const [training, setTraining] = useState(false);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [forecastLoading, setForecastLoading] = useState(false);
+  const [reordersLoading, setReordersLoading] = useState(false);
+  const [poCreating, setPoCreating] = useState(false);
+  const [riskScanLoading, setRiskScanLoading] = useState(false);
+  const [riskScanMessage, setRiskScanMessage] = useState("");
+  const [trendLoading, setTrendLoading] = useState(false);
 
   async function fetchAll() {
-    const [h, k, r, a] = await Promise.all([
-      fetch(`${API}/health`).then((x) => x.json()),
-      fetch(`${API}/kpi?horizon=${horizon}`).then((x) => x.json()),
-      fetch(`${API}/dashboard/risk?horizon=${horizon}`).then((x) => x.json()),
-      fetch(`${API}/alerts`).then((x) => x.json()),
-    ]);
-    setHealth(h);
-    setKpi(k);
-    setRiskItems(r.items || []);
-    setAlerts(a.alerts || []);
+    setDashboardLoading(true);
+    try {
+      const [h, k, r, a] = await Promise.all([
+        fetch(`${API}/health`).then((x) => x.json()),
+        fetch(`${API}/kpi?horizon=${horizon}`).then((x) => x.json()),
+        fetch(`${API}/dashboard/risk?horizon=${horizon}`).then((x) => x.json()),
+        fetch(`${API}/alerts`).then((x) => x.json()),
+      ]);
+      setHealth(h);
+      setKpi(k);
+      setRiskItems(r.items || []);
+      setAlerts(a.alerts || []);
+    } finally {
+      setDashboardLoading(false);
+    }
   }
 
   async function loadSeries() {
-    const res = await fetch(`${API}/series?store=${store}&dept=${dept}&limit=90`);
-    const j = await res.json();
-    setSeries(j.records || []);
+    setForecastLoading(true);
+    try {
+      const res = await fetch(`${API}/series?store=${store}&dept=${dept}&limit=90`);
+      const j = await res.json();
+      setSeries(j.records || []);
+    } finally {
+      setForecastLoading(false);
+    }
   }
 
   async function loadForecast() {
-    const res = await fetch(`${API}/forecast?store=${store}&dept=${dept}&horizon=${horizon}`);
-    const j = await res.json();
-    setForecast(j);
+    setForecastLoading(true);
+    try {
+      const res = await fetch(`${API}/forecast?store=${store}&dept=${dept}&horizon=${horizon}`);
+      const j = await res.json();
+      setForecast(j);
+    } finally {
+      setForecastLoading(false);
+    }
   }
 
   async function loadReorders() {
-    const calls = STORES.flatMap((s) => DEPTS.map((d) => ({ s, d })));
-    const res = await Promise.all(
-      calls.map(({ s, d }) =>
-        fetch(`${API}/reorder?store=${s}&dept=${d}&horizon=${horizon}`).then((x) => x.json())
-      )
-    );
-    setReorders(res.map((x, i) => ({ ...x.recommendation, key: i })));
-    const p = await fetch(`${API}/pos`).then((x) => x.json());
-    setPos(p.pos || []);
+    setReordersLoading(true);
+    try {
+      const calls = STORES.flatMap((s) => DEPTS.map((d) => ({ s, d })));
+      const res = await Promise.all(
+        calls.map(({ s, d }) =>
+          fetch(`${API}/reorder?store=${s}&dept=${d}&horizon=${horizon}`).then((x) => x.json())
+        )
+      );
+      setReorders(res.map((x, i) => ({ ...x.recommendation, key: i })));
+      const p = await fetch(`${API}/pos`).then((x) => x.json());
+      setPos(p.pos || []);
+    } finally {
+      setReordersLoading(false);
+    }
   }
 
   async function loadTrend(c = trendCat) {
-    const res = await fetch(`${API}/trend?category=${c}`).then((x) => x.json());
-    setTrend(res.trend);
+    setTrendLoading(true);
+    try {
+      const res = await fetch(`${API}/trend?category=${c}`).then((x) => x.json());
+      setTrend(res.trend);
+    } finally {
+      setTrendLoading(false);
+    }
   }
 
   async function loadReport() {
@@ -148,18 +182,66 @@ export default function Home() {
   }
 
   async function createPo(s: string, d: string) {
-    await fetch(`${API}/reorder`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ store: s, dept: d, horizon }),
-    });
-    await loadReorders();
+    setPoCreating(true);
+    try {
+      await fetch(`${API}/reorder`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ store: s, dept: d, horizon }),
+      });
+      await loadReorders();
+    } finally {
+      setPoCreating(false);
+    }
   }
 
   async function riskScan() {
-    await fetch(`${API}/risk-scan`, { method: "POST" });
-    await fetchAll();
+    setRiskScanLoading(true);
+    setRiskScanMessage("");
+    try {
+      const res = await fetch(`${API}/risk-scan`, { method: "POST" });
+      const j = await res.json();
+      await fetchAll();
+      setRiskScanMessage(`Scanned inventory risks: ${j.flagged ?? 0} risks detected.`);
+    } catch (e) {
+      setRiskScanMessage("Risk scan failed. Please retry.");
+    } finally {
+      setRiskScanLoading(false);
+    }
   }
+
+  const riskColumns = [
+    { key: "label", header: "Store / Department", width: "2fr", render: (r: any) => `${r.store} / ${r.dept}` },
+    { key: "days_of_supply", header: "Days of supply", width: "1fr", align: "center" as const },
+    { key: "on_hand", header: "On hand", width: "1fr", align: "right" as const, render: (r: any) => Number(r.on_hand).toLocaleString() },
+    { key: "risk_level", header: "Risk", width: "1fr", render: (r: any) => <span style={{ color: r.risk_level === "CRITICAL" ? "#ef4444" : r.risk_level === "WARNING" ? "#f59e0b" : "#22c55e", fontWeight: 700 }}>{r.risk_level}</span> },
+  ];
+
+  const forecastColumns = [
+    { key: "Date", header: "Date", width: "2fr", render: (r: any) => String(r.Date).slice(0, 10) },
+    { key: "yhat", header: "Forecast", width: "1fr", align: "right" as const, render: (r: any) => Number(r.yhat).toFixed(1) },
+    { key: "yhat_lower", header: "Lower bound", width: "1fr", align: "right" as const, render: (r: any) => Number(r.yhat_lower).toFixed(1) },
+    { key: "yhat_upper", header: "Upper bound", width: "1fr", align: "right" as const, render: (r: any) => Number(r.yhat_upper).toFixed(1) },
+  ];
+
+  const reorderColumns = [
+    { key: "store", header: "Store", width: "1fr" },
+    { key: "dept", header: "Department", width: "1fr" },
+    { key: "recommended_qty", header: "Qty", width: "1fr", align: "right" as const, render: (r: any) => Number(r.recommended_qty).toLocaleString() },
+    { key: "supplier", header: "Supplier", width: "1.5fr" },
+    { key: "lead_time_days", header: "Lead days", width: "1fr", align: "center" as const },
+    { key: "risk_level", header: "Risk", width: "1fr", render: (r: any) => <span style={{ color: r.risk_level === "CRITICAL" ? "#ef4444" : r.risk_level === "WARNING" ? "#f59e0b" : "#22c55e", fontWeight: 700 }}>{r.risk_level}</span> },
+  ];
+
+  const poColumns = [
+    { key: "id", header: "ID", width: "0.6fr", align: "center" as const, render: (r: any) => `#${r.id}` },
+    { key: "store", header: "Store", width: "1fr" },
+    { key: "dept", header: "Dept", width: "1fr" },
+    { key: "qty", header: "Qty", width: "1fr", align: "right" as const, render: (r: any) => Number(r.qty).toLocaleString() },
+    { key: "supplier", header: "Supplier", width: "1.5fr" },
+    { key: "lead_time_days", header: "Lead days", width: "1fr", align: "center" as const },
+    { key: "status", header: "Status", width: "1fr" },
+  ];
 
   const page: React.CSSProperties = { fontFamily: "Inter, system-ui, sans-serif", background: "#0b1220", color: "#e2e8f0", minHeight: "100vh", padding: 24 };
   const card: React.CSSProperties = { background: "#101826", border: "1px solid #1f2a3d", borderRadius: 16, padding: 18, boxShadow: "0 8px 24px rgba(0,0,0,.25)" };
@@ -299,22 +381,10 @@ export default function Home() {
               <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 18 }}>
                 <div style={card}>
                   <h3 style={{ marginTop: 0 }}>Inventory risk map</h3>
-                  <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ color: "#94a3b8" }}><th style={thStyle}>Store / Department</th><th style={thStyle}>Days of supply</th><th style={thStyle}>On hand</th><th style={thStyle}>Risk</th></tr>
-                    </thead>
-                    <tbody>
-                      {riskItems.map((r) => (
-                        <tr key={r.store + r.dept} style={{ borderTop: "1px solid #1f2a3d" }}>
-                          <td style={tdStyle}>{r.store} / {r.dept}</td>
-                          <td style={{ ...tdStyle, textAlign: "center" }}>{r.days_of_supply}</td>
-                          <td style={{ ...tdStyle, textAlign: "right" }}>{r.on_hand}</td>
-                          <td style={{ ...tdStyle, color: r.risk_level === "CRITICAL" ? "#ef4444" : r.risk_level === "WARNING" ? "#f59e0b" : "#22c55e" }}>{r.risk_level}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <button style={{ ...btn, marginTop: 10 }} onClick={riskScan}>🔎 Run full risk scan</button>
+                  <LoadingStatus visible={dashboardLoading || riskScanLoading} message={riskScanLoading ? "Scanning inventory risks..." : "Loading inventory risk..."} />
+                  <Table columns={riskColumns as any} rows={riskItems} loading={dashboardLoading || riskScanLoading} loadingMessage="Scanning inventory risks..." emptyMessage="No inventory data available." />
+                  <button style={{ ...btn, marginTop: 10 }} onClick={riskScan} disabled={riskScanLoading}>{riskScanLoading ? "Scanning..." : "🔎 Run full risk scan"}</button>
+                  {!riskScanLoading && riskScanMessage && <div style={{ color: riskScanMessage.includes("failed") ? "#ef4444" : "#22c55e", marginTop: 8 }}>{riskScanMessage}</div>}
                 </div>
                 <div style={card}>
                   <h3 style={{ marginTop: 0 }}>Risk feed</h3>
@@ -325,13 +395,17 @@ export default function Home() {
                     </div>
                   ))}
                   <h4 style={{ marginBottom: 6 }}>External trend</h4>
-                  <select style={{ ...input, width: "100%", marginBottom: 8 }} value={trendCat} onChange={(e) => { setTrendCat(e.target.value); loadTrend(e.target.value); }}>
+                  <select style={{ ...input, width: "100%", marginBottom: 8 }} value={trendCat} onChange={(e) => { setTrendCat(e.target.value); loadTrend(e.target.value); }} disabled={trendLoading}>
                     {DEPTS.map((d) => <option key={d}>{d}</option>)}
                   </select>
-                  {trend && (
+                  {trendLoading && <LoadingStatus visible message="Fetching external trend data..." />}
+                  {trend && !trendLoading && (
                     <div>
                       <div style={{ fontSize: 18, fontWeight: 700 }}>{trend.direction} ({trend.delta_pct}%)</div>
                       <div style={{ color: "#94a3b8", fontSize: 12 }}>latest {trend.latest} · baseline {trend.baseline} · {trend.source}</div>
+                      {String(trend.source).includes("fallback") && (
+                        <div style={{ color: "#f59e0b", fontSize: 12, marginTop: 6 }}>Live external data unavailable; showing fallback. {String(trend.source)}</div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -339,6 +413,7 @@ export default function Home() {
               <div style={card}>
                 <h3 style={{ marginTop: 0 }}>Recent demand — {store} / {dept}</h3>
                 <p style={{ color: "#94a3b8", fontSize: 12, margin: "0 0 8px" }}>Sales units over the last {series.length} days</p>
+                <LoadingStatus visible={forecastLoading} message="Loading recent demand..." />
                 {series.length === 0 ? (
                   <div style={{ color: "#64748b" }}>No series data available.</div>
                 ) : (
@@ -401,9 +476,10 @@ export default function Home() {
                 ))}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <input style={{ ...input, flex: 1 }} placeholder="e.g. Forecast 28 days for TX_1 HOUSEHOLD and check risk" value={agentQ} onChange={(e) => setAgentQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendAgent()} />
+                <input style={{ ...input, flex: 1 }} placeholder="e.g. Forecast 28 days for TX_1 HOUSEHOLD and check risk" value={agentQ} onChange={(e) => setAgentQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendAgent()} disabled={agentLoading} />
                 <button style={btn} onClick={sendAgent} disabled={agentLoading}>{agentLoading ? "Thinking…" : "Send"}</button>
               </div>
+              <LoadingStatus visible={agentLoading} message="Running agent tools..." />
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
                 {["Forecast CA_1 FOODS 28 days", "Stockout risk for TX_2 HOBBIES", "Reorder WI_1 HOUSEHOLD", "Run a risk scan across all", "Detect demand spike CA_1 FOODS"].map((q) => (
                   <button key={q} onClick={() => { setAgentQ(q); sendAgent(); }} style={{ ...btn, background: "#1f2937", fontSize: 12 }}>{q}</button>
@@ -461,46 +537,16 @@ export default function Home() {
                   );
                 })()}
               </svg>
-              <div style={{ maxHeight: 300, overflow: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ color: "#94a3b8" }}><th style={{ textAlign: "left" }}>Date</th><th style={{ textAlign: "right" }}>Forecast</th><th style={{ textAlign: "right" }}>Lower bound</th><th style={{ textAlign: "right" }}>Upper bound</th></tr>
-                  </thead>
-                  <tbody>
-                    {(forecast.records || []).map((r: any, i: number) => (
-                      <tr key={i} style={{ borderTop: "1px solid #1f2a3d" }}>
-                        <td>{String(r.Date).slice(0, 10)}</td>
-                        <td style={{ textAlign: "right" }}>{Number(r.yhat).toFixed(1)}</td>
-                        <td style={{ textAlign: "right" }}>{Number(r.yhat_lower).toFixed(1)}</td>
-                        <td style={{ textAlign: "right" }}>{Number(r.yhat_upper).toFixed(1)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <LoadingStatus visible={forecastLoading} message="Generating demand forecast..." />
+              <Table columns={forecastColumns as any} rows={forecast.records || []} loading={forecastLoading} loadingMessage="Generating demand forecast..." emptyMessage="No forecast available." />
             </div>
           )}
 
           {tab === "reorders" && (
             <div style={card}>
               <h3 style={{ marginTop: 0 }}>Reorder recommendations</h3>
-              <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 13, marginBottom: 16 }}>
-                <thead>
-                  <tr style={{ color: "#94a3b8" }}><th>Store</th><th>Department</th><th style={{ textAlign: "right" }}>Qty</th><th>Supplier</th><th style={{ textAlign: "center" }}>Lead days</th><th>Risk</th></tr>
-                </thead>
-                <tbody>
-                  {reorders.map((r, i) => (
-                    <tr key={i} style={{ borderTop: "1px solid #1f2a3d" }}>
-                      <td>{r.store}</td>
-                      <td>{r.dept}</td>
-                      <td style={{ textAlign: "right" }}>{r.recommended_qty}</td>
-                      <td>{r.supplier}</td>
-                      <td style={{ textAlign: "center" }}>{r.lead_time_days}</td>
-                      <td style={{ color: r.risk_level === "CRITICAL" ? "#ef4444" : r.risk_level === "WARNING" ? "#f59e0b" : "#22c55e" }}>{r.risk_level}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <LoadingStatus visible={reordersLoading} message="Calculating reorder recommendations..." />
+              <Table columns={reorderColumns as any} rows={reorders} loading={reordersLoading} loadingMessage="Calculating reorder recommendations..." emptyMessage="No reorder data available." />
               <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                 <select style={input as any} value={store} onChange={(e) => setStore(e.target.value)}>
                   {STORES.map((s) => <option key={s}>{s}</option>)}
@@ -508,21 +554,11 @@ export default function Home() {
                 <select style={input as any} value={dept} onChange={(e) => setDept(e.target.value)}>
                   {DEPTS.map((d) => <option key={d}>{d}</option>)}
                 </select>
-                <button style={btn} onClick={() => createPo(store, dept)}>✅ Create draft PO</button>
+                <button style={{ ...btn, opacity: poCreating ? 0.6 : 1 }} onClick={() => createPo(store, dept)} disabled={poCreating}>{poCreating ? "Creating..." : "✅ Create draft PO"}</button>
               </div>
               <h4>Draft POs</h4>
-              <div style={{ maxHeight: 240, overflow: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, tableLayout: "fixed" }}>
-                  <thead><tr style={{ color: "#94a3b8" }}><th>ID</th><th>Store</th><th>Dept</th><th style={{ textAlign: "right" }}>Qty</th><th>Supplier</th><th style={{ textAlign: "center" }}>Lead days</th><th>Status</th></tr></thead>
-                  <tbody>
-                    {pos.map((p) => (
-                      <tr key={p.id} style={{ borderTop: "1px solid #1f2a3d" }}>
-                        <td>#{p.id}</td><td>{p.store}</td><td>{p.dept}</td><td>{p.qty}</td><td>{p.supplier}</td><td>{p.lead_time_days}</td><td>{p.status}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <LoadingStatus visible={poCreating} message="Creating draft purchase order..." />
+              <Table columns={poColumns as any} rows={pos} loading={poCreating} loadingMessage="Loading draft purchase orders..." emptyMessage="No draft purchase orders yet." />
             </div>
           )}
 
