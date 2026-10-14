@@ -12,14 +12,23 @@ signals, and recommends (and drafts) replenishment orders. Built for the Latents
 - **Works offline:** deterministic router when no LLM API key is configured; UI never breaks.
 - **Polished UI:** Streamlit + Plotly, KPI cards, forecast bands, risk feed, chat agent, report export.
 
-## Quickstart
+## Quickstart (Next.js frontend + FastAPI backend)
 ```bash
 pip install -r requirements.txt
 cp .env.example .env        # optional: add GROQ_API_KEY or OPENAI_API_KEY
 python scripts/train.py    # one-time: trains + caches models (~2-5 min)
-streamlit run app.py
+
+# Terminal 1 - backend
+python -m uvicorn src.api:app --host 0.0.0.0 --port 8000
+
+# Terminal 2 - frontend
+cd frontend
+npm install
+npm run dev
 ```
-Open http://localhost:8501
+Open http://localhost:3000 (backend at http://localhost:8000)
+
+(Legacy Streamlit UI remains available via `streamlit run app.py`.)
 
 ## Tests
 ```bash

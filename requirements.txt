@@ -15,6 +15,10 @@ openai>=1.30
 python-dotenv>=1.0
 pytrends>=4.9
 
+# API backend (for Next.js frontend)
+fastapi>=0.110
+uvicorn>=0.29
+
 # DB / utils
 sqlalchemy>=2.0
 requests>=2.31

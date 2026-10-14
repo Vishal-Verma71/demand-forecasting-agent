@@ -1,0 +1,418 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+type Kpi = {
+  rows: number;
+  stores: number;
+  departments: number;
+  on_hand_units: number;
+  at_risk_skus: number;
+  draft_pos: number;
+};
+
+type RiskItem = {
+  store: string;
+  dept: string;
+  days_of_supply: number;
+  risk_level: "OK" | "WARNING" | "CRITICAL";
+  on_hand: number;
+  avg_daily_demand: number;
+};
+
+const STORES = ["CA_1", "CA_2", "TX_1", "TX_2", "WI_1"];
+const DEPTS = ["FOODS", "HOBBIES", "HOUSEHOLD"];
+
+export default function Home() {
+  const [tab, setTab] = useState("dashboard");
+  const [store, setStore] = useState("CA_1");
+  const [dept, setDept] = useState("FOODS");
+  const [horizon, setHorizon] = useState(28);
+  const [health, setHealth] = useState<any>(null);
+  const [kpi, setKpi] = useState<Kpi | null>(null);
+  const [riskItems, setRiskItems] = useState<RiskItem[]>([]);
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [series, setSeries] = useState<any[]>([]);
+  const [forecast, setForecast] = useState<any>(null);
+  const [trendCat, setTrendCat] = useState("FOODS");
+  const [trend, setTrend] = useState<any>(null);
+  const [reorders, setReorders] = useState<any[]>([]);
+  const [pos, setPos] = useState<any[]>([]);
+  const [reportMd, setReportMd] = useState("");
+  const [agentQ, setAgentQ] = useState("");
+  const [agentHistory, setAgentHistory] = useState<any[]>([]);
+  const [agentLoading, setAgentLoading] = useState(false);
+  const [training, setTraining] = useState(false);
+
+  async function fetchAll() {
+    const [h, k, r, a] = await Promise.all([
+      fetch(`${API}/health`).then((x) => x.json()),
+      fetch(`${API}/kpi`).then((x) => x.json()),
+      fetch(`${API}/dashboard/risk`).then((x) => x.json()),
+      fetch(`${API}/alerts`).then((x) => x.json()),
+    ]);
+    setHealth(h);
+    setKpi(k);
+    setRiskItems(r.items || []);
+    setAlerts(a.alerts || []);
+  }
+
+  async function loadSeries() {
+    const res = await fetch(`${API}/series?store=${store}&dept=${dept}&limit=90`);
+    const j = await res.json();
+    setSeries(j.records || []);
+  }
+
+  async function loadForecast() {
+    const res = await fetch(`${API}/forecast?store=${store}&dept=${dept}&horizon=${horizon}`);
+    const j = await res.json();
+    setForecast(j);
+  }
+
+  async function loadReorders() {
+    const calls = STORES.flatMap((s) => DEPTS.map((d) => ({ s, d })));
+    const res = await Promise.all(
+      calls.map(({ s, d }) =>
+        fetch(`${API}/reorder?store=${s}&dept=${d}&horizon=${horizon}`).then((x) => x.json())
+      )
+    );
+    setReorders(res.map((x, i) => ({ ...x.recommendation, key: i })));
+    const p = await fetch(`${API}/pos`).then((x) => x.json());
+    setPos(p.pos || []);
+  }
+
+  async function loadTrend(c = trendCat) {
+    const res = await fetch(`${API}/trend?category=${c}`).then((x) => x.json());
+    setTrend(res.trend);
+  }
+
+  async function loadReport() {
+    const res = await fetch(`${API}/report`).then((x) => x.json());
+    setReportMd(res.markdown || "");
+  }
+
+  useEffect(() => {
+    fetchAll();
+  }, []);
+
+  useEffect(() => {
+    loadSeries();
+    loadForecast();
+  }, [store, dept, horizon]);
+
+  useEffect(() => {
+    if (tab === "reorders") loadReorders();
+    if (tab === "report") loadReport();
+    if (tab === "dashboard") fetchAll();
+  }, [tab]);
+
+  useEffect(() => {
+    if (tab === "dashboard") loadTrend(trendCat);
+  }, [trendCat, tab]);
+
+  async function sendAgent() {
+    if (!agentQ.trim()) return;
+    const q = agentQ;
+    setAgentQ("");
+    setAgentLoading(true);
+    setAgentHistory((prev) => [...prev, { role: "user", content: q }]);
+    try {
+      const res = await fetch(`${API}/agent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: q }),
+      });
+      const j = await res.json();
+      setAgentHistory((prev) => [...prev, { role: "assistant", content: j.answer, steps: j.steps || [] }]);
+    } catch (e: any) {
+      setAgentHistory((prev) => [...prev, { role: "assistant", content: "Error: " + String(e) }]);
+    } finally {
+      setAgentLoading(false);
+    }
+  }
+
+  async function runTrain() {
+    setTraining(true);
+    try {
+      await fetch(`${API}/train`, { method: "POST" });
+      await fetchAll();
+    } finally {
+      setTraining(false);
+    }
+  }
+
+  async function createPo(s: string, d: string) {
+    await fetch(`${API}/reorder`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ store: s, dept: d }),
+    });
+    await loadReorders();
+  }
+
+  async function riskScan() {
+    await fetch(`${API}/risk-scan`, { method: "POST" });
+    await fetchAll();
+  }
+
+  const page: React.CSSProperties = { fontFamily: "Inter, system-ui, sans-serif", background: "#0b1220", color: "#e2e8f0", minHeight: "100vh", padding: 24 };
+  const card: React.CSSProperties = { background: "#101826", border: "1px solid #1f2a3d", borderRadius: 16, padding: 18, boxShadow: "0 8px 24px rgba(0,0,0,.25)" };
+  const btn: React.CSSProperties = { background: "#6366f1", color: "#fff", border: "none", borderRadius: 10, padding: "8px 14px", cursor: "pointer", fontWeight: 600 };
+  const input: React.CSSProperties = { background: "#0f172a", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 10, padding: "8px 12px" };
+
+  return (
+    <div style={page}>
+      <div style={{ ...card, background: "radial-gradient(1200px 300px at 10% -20%, #312e81 0%, #0f172a 60%)", marginBottom: 18 }}>
+        <h1 style={{ margin: 0, fontSize: 30, fontWeight: 800, background: "linear-gradient(90deg,#6366f1,#22d3ee)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+          Demand Forecasting Agent
+        </h1>
+        <p style={{ color: "#cbd5e1", margin: "6px 0 12px" }}>
+          Logistics supply chain intelligence · gradient boosting · ReAct agent · stockout risk & auto-reorder
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ padding: "3px 10px", borderRadius: 999, background: "#1f2937", border: "1px solid #334155", fontSize: 12 }}>Stores: {health?.stores ?? 5}</span>
+          <span style={{ padding: "3px 10px", borderRadius: 999, background: "#1f2937", border: "1px solid #334155", fontSize: 12 }}>Departments: {health?.departments ?? 3}</span>
+          <span style={{ padding: "3px 10px", borderRadius: 999, background: "#1f2937", border: "1px solid #334155", fontSize: 12 }}>Rows: {kpi?.rows ?? 0}</span>
+          <span style={{ padding: "3px 10px", borderRadius: 999, background: "#1f2937", border: "1px solid #334155", fontSize: 12 }}>Horizon: {horizon}d</span>
+          <span style={{ padding: "3px 10px", borderRadius: 999, background: "#1f2937", border: "1px solid #334155", fontSize: 12 }}>LLM: {health?.llm_backend ?? "none"} {health?.llm_available ? "✅" : "(offline)"}</span>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 18 }}>
+        <div style={{ ...card, height: "fit-content" }}>
+          <h3 style={{ marginTop: 0 }}>Controls</h3>
+          <div style={{ display: "grid", gap: 12 }}>
+            <label>Store
+              <select style={{ ...input, width: "100%", marginTop: 4 }} value={store} onChange={(e) => setStore(e.target.value)}>
+                {STORES.map((s) => <option key={s}>{s}</option>)}
+              </select>
+            </label>
+            <label>Department
+              <select style={{ ...input, width: "100%", marginTop: 4 }} value={dept} onChange={(e) => setDept(e.target.value)}>
+                {DEPTS.map((d) => <option key={d}>{d}</option>)}
+              </select>
+            </label>
+            <label>Horizon (days): {horizon}
+              <input type="range" min="7" max="56" value={horizon} onChange={(e) => setHorizon(Number(e.target.value))} style={{ width: "100%" }} />
+            </label>
+            {!health?.models_ready && (
+              <button style={btn} onClick={runTrain} disabled={training}>{training ? "Training…" : "🚀 Train model"}</button>
+            )}
+            {health?.models_ready && <div style={{ color: "#22c55e", fontSize: 13 }}>Models ready ✅</div>}
+            <div style={{ fontSize: 12, color: "#94a3b8" }}>Model: {health?.models_ready ? "" : "not trained"} {health?.llm_available ? "" : "offline router active"}</div>
+          </div>
+          <h3 style={{ marginTop: 20 }}>Tabs</h3>
+          <div style={{ display: "grid", gap: 6 }}>
+            {["dashboard", "agent", "forecast", "reorders", "report"].map((t) => (
+              <button key={t} onClick={() => setTab(t)} style={{ ...btn, background: tab === t ? "#6366f1" : "#1f2937", textAlign: "left", textTransform: "capitalize" }}>{t}</button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gap: 18 }}>
+          {tab === "dashboard" && (
+            <>
+              {kpi && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+                  {[
+                    { l: "Data rows", v: kpi.rows.toLocaleString(), s: `${kpi.stores} stores × ${kpi.departments} depts` },
+                    { l: "On-hand units", v: kpi.on_hand_units.toLocaleString(undefined, { maximumFractionDigits: 0 }), s: "across all SKUs" },
+                    { l: "At-risk SKUs", v: String(kpi.at_risk_skus), s: `horizon ${horizon}d` },
+                    { l: "Draft POs", v: String(kpi.draft_pos), s: "auto-generated" },
+                  ].map((c, i) => (
+                    <div key={i} style={card}>
+                      <div style={{ color: "#94a3b8", fontSize: 11, textTransform: "uppercase", letterSpacing: ".08em" }}>{c.l}</div>
+                      <div style={{ fontSize: 26, fontWeight: 700, margin: "4px 0" }}>{c.v}</div>
+                      <div style={{ color: "#64748b", fontSize: 12 }}>{c.s}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 18 }}>
+                <div style={card}>
+                  <h3 style={{ marginTop: 0 }}>Inventory risk map</h3>
+                  <div style={{ display: "grid", gap: 6 }}>
+                    {riskItems.map((r) => (
+                      <div key={r.store + r.dept} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #1f2a3d" }}>
+                        <span>{r.store} / {r.dept}</span>
+                        <span style={{ color: r.risk_level === "CRITICAL" ? "#ef4444" : r.risk_level === "WARNING" ? "#f59e0b" : "#22c55e" }}>
+                          {r.days_of_supply} days · {r.risk_level}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <button style={{ ...btn, marginTop: 10 }} onClick={riskScan}>🔎 Run full risk scan</button>
+                </div>
+                <div style={card}>
+                  <h3 style={{ marginTop: 0 }}>Risk feed</h3>
+                  {riskItems.filter((r) => r.risk_level !== "OK").length === 0 && <div style={{ color: "#22c55e" }}>No at-risk SKUs 🎉</div>}
+                  {riskItems.filter((r) => r.risk_level !== "OK").map((r) => (
+                    <div key={r.store + r.dept} style={{ marginBottom: 8 }}>
+                      {r.risk_level === "CRITICAL" ? "🔴" : "🟡"} <b>{r.store}/{r.dept}</b> — {r.days_of_supply} days supply
+                    </div>
+                  ))}
+                  <h4 style={{ marginBottom: 6 }}>External trend</h4>
+                  <select style={{ ...input, width: "100%", marginBottom: 8 }} value={trendCat} onChange={(e) => { setTrendCat(e.target.value); loadTrend(e.target.value); }}>
+                    {DEPTS.map((d) => <option key={d}>{d}</option>)}
+                  </select>
+                  {trend && (
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 700 }}>{trend.direction} ({trend.delta_pct}%)</div>
+                      <div style={{ color: "#94a3b8", fontSize: 12 }}>latest {trend.latest} · baseline {trend.baseline} · {trend.source}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div style={card}>
+                <h3 style={{ marginTop: 0 }}>Recent demand — {store} / {dept}</h3>
+                <div style={{ height: 200, display: "flex", alignItems: "flex-end", gap: 2, borderBottom: "1px solid #334155", paddingBottom: 4 }}>
+                  {series.map((s, i) => {
+                    const max = Math.max(...series.map((x) => x.Sales));
+                    const h = (s.Sales / max) * 180;
+                    return <div key={i} title={`${s.Date}: ${s.Sales}`} style={{ width: 3, height: h, background: "#6366f1", borderRadius: 2 }} />;
+                  })}
+                </div>
+                <div style={{ color: "#64748b", fontSize: 11, marginTop: 4 }}>{series.length} days</div>
+              </div>
+            </>
+          )}
+
+          {tab === "agent" && (
+            <div style={card}>
+              <h3 style={{ marginTop: 0 }}>Ask the agent</h3>
+              <div style={{ display: "grid", gap: 10, marginBottom: 12 }}>
+                {agentHistory.map((m, i) => (
+                  <div key={i} style={{ background: m.role === "user" ? "#1e293b" : "#0b1220", padding: 12, borderRadius: 12, border: "1px solid #1f2a3d" }}>
+                    <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 4 }}>{m.role}</div>
+                    <div style={{ whiteSpace: "pre-wrap" }}>{m.content}</div>
+                    {m.steps && (
+                      <details style={{ marginTop: 8 }}>
+                        <summary style={{ color: "#94a3b8", cursor: "pointer" }}>Reasoning trace ({m.steps.length} tool calls)</summary>
+                        {m.steps.map((s: any, j: number) => (
+                          <div key={j} style={{ fontFamily: "monospace", fontSize: 12, marginTop: 6, padding: 8, background: "#0f172a", borderLeft: "3px solid #6366f1", borderRadius: 6 }}>
+                            <b>{s.tool}</b> {JSON.stringify(s.args)}<br />
+                            <span style={{ color: "#94a3b8" }}>{String(s.observation).slice(0, 700)}</span>
+                          </div>
+                        ))}
+                      </details>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input style={{ ...input, flex: 1 }} placeholder="e.g. Forecast 28 days for TX_1 HOUSEHOLD and check risk" value={agentQ} onChange={(e) => setAgentQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendAgent()} />
+                <button style={btn} onClick={sendAgent} disabled={agentLoading}>{agentLoading ? "Thinking…" : "Send"}</button>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                {["Forecast CA_1 FOODS 28 days", "Stockout risk for TX_2 HOBBIES", "Reorder WI_1 HOUSEHOLD", "Run a risk scan across all", "Detect demand spike CA_1 FOODS"].map((q) => (
+                  <button key={q} onClick={() => { setAgentQ(q); sendAgent(); }} style={{ ...btn, background: "#1f2937", fontSize: 12 }}>{q}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tab === "forecast" && forecast && (
+            <div style={card}>
+              <h3 style={{ marginTop: 0 }}>Forecast · {store} / {dept} · {horizon} days</h3>
+              {forecast.summary && (
+                <div style={{ display: "flex", gap: 24, marginBottom: 12, color: "#cbd5e1" }}>
+                  <span>Total: <b>{forecast.summary.total_demand}</b></span>
+                  <span>Avg daily: <b>{forecast.summary.avg_daily}</b></span>
+                  <span>Range: {forecast.summary.first_day} → {forecast.summary.last_day}</span>
+                  {forecast.metrics && <span>MAPE {forecast.metrics.MAPE}% · MAE {forecast.metrics.MAE}</span>}
+                </div>
+              )}
+              <div style={{ height: 260, display: "flex", alignItems: "flex-end", gap: 2, borderBottom: "1px solid #334155", paddingBottom: 4, marginBottom: 12 }}>
+                {(forecast.records || []).map((r: any, i: number) => {
+                  const max = Math.max(...(forecast.records || []).map((x: any) => x.yhat));
+                  const h = (r.yhat / max) * 240;
+                  return <div key={i} title={`${r.Date}: ${r.yhat}`} style={{ width: 4, height: h, background: "#6366f1", borderRadius: 2 }} />;
+                })}
+              </div>
+              <div style={{ maxHeight: 300, overflow: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ color: "#94a3b8" }}><th style={{ textAlign: "left" }}>Date</th><th>yhat</th><th>lower</th><th>upper</th></tr>
+                  </thead>
+                  <tbody>
+                    {(forecast.records || []).map((r: any, i: number) => (
+                      <tr key={i} style={{ borderTop: "1px solid #1f2a3d" }}>
+                        <td>{String(r.Date).slice(0, 10)}</td>
+                        <td style={{ textAlign: "right" }}>{Number(r.yhat).toFixed(1)}</td>
+                        <td style={{ textAlign: "right" }}>{Number(r.yhat_lower).toFixed(1)}</td>
+                        <td style={{ textAlign: "right" }}>{Number(r.yhat_upper).toFixed(1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {tab === "reorders" && (
+            <div style={card}>
+              <h3 style={{ marginTop: 0 }}>Reorder recommendations</h3>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 16 }}>
+                <thead>
+                  <tr style={{ color: "#94a3b8" }}><th>Store</th><th>Dept</th><th>Qty</th><th>Supplier</th><th>Lead</th><th>Risk</th></tr>
+                </thead>
+                <tbody>
+                  {reorders.map((r, i) => (
+                    <tr key={i} style={{ borderTop: "1px solid #1f2a3d" }}>
+                      <td>{r.store}</td>
+                      <td>{r.dept}</td>
+                      <td style={{ textAlign: "right" }}>{r.recommended_qty}</td>
+                      <td>{r.supplier}</td>
+                      <td style={{ textAlign: "center" }}>{r.lead_time_days}</td>
+                      <td style={{ color: r.risk_level === "CRITICAL" ? "#ef4444" : r.risk_level === "WARNING" ? "#f59e0b" : "#22c55e" }}>{r.risk_level}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                <select style={input as any} value={store} onChange={(e) => setStore(e.target.value)}>
+                  {STORES.map((s) => <option key={s}>{s}</option>)}
+                </select>
+                <select style={input as any} value={dept} onChange={(e) => setDept(e.target.value)}>
+                  {DEPTS.map((d) => <option key={d}>{d}</option>)}
+                </select>
+                <button style={btn} onClick={() => createPo(store, dept)}>✅ Create draft PO</button>
+              </div>
+              <h4>Draft POs</h4>
+              <div style={{ maxHeight: 240, overflow: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead><tr style={{ color: "#94a3b8" }}><th>ID</th><th>Store</th><th>Dept</th><th>Qty</th><th>Supplier</th><th>Lead</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {pos.map((p) => (
+                      <tr key={p.id} style={{ borderTop: "1px solid #1f2a3d" }}>
+                        <td>#{p.id}</td><td>{p.store}</td><td>{p.dept}</td><td>{p.qty}</td><td>{p.supplier}</td><td>{p.lead_time_days}</td><td>{p.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {tab === "report" && (
+            <div style={card}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+                <h3 style={{ margin: 0 }}>Auto-generated report</h3>
+                <button style={btn} onClick={() => {
+                  const blob = new Blob([reportMd], { type: "text/markdown" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url; a.download = "supply_chain_report.md"; a.click();
+                  URL.revokeObjectURL(url);
+                }}>⬇ Download</button>
+              </div>
+              <pre style={{ whiteSpace: "pre-wrap", background: "#0b1220", padding: 14, borderRadius: 12, border: "1px solid #1f2a3d", fontSize: 13, maxHeight: 600, overflow: "auto" }}>{reportMd}</pre>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
