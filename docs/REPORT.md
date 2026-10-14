@@ -4,7 +4,7 @@
 Logistics/retail teams lose money on stockouts and overstock. Manual spreadsheet forecasting is slow and reactive. This agent automates demand forecasting, risk detection, trend awareness, and replenishment recommendations.
 
 ## 2. Agentic workflow
-- Detect: parse user intent (forecast / risk / reorder / trends / inventory).
+- Detect: parse user intent (forecast / risk / reorder / trends / inventory / demand spike).
 - Plan: LLM (Groq/OpenAI/Ollama) chooses tools; offline router handles the same intents deterministically.
 - Act: call tools (`forecast_demand`, `detect_stockout_risk`, `query_trends`, `recommend_reorder`, `inventory_snapshot`, `run_risk_scan`).
 - Observe: tool results (forecasts, risk levels, trends) feed back into the loop.

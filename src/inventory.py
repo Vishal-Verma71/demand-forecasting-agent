@@ -72,6 +72,23 @@ def reorder_recommendation(store: str, dept: str, horizon: int = 28) -> dict:
                 risk_level=st["risk_level"])
 
 
+def detect_demand_spike(store: str, dept: str, window: int = 90) -> dict:
+    from .data import load_or_generate
+    from .features import build_series
+    df = load_or_generate()
+    s = build_series(df, store, dept)
+    recent = s["Sales"].tail(7).mean()
+    base = s["Sales"].tail(window + 7).head(window)
+    mu, sd = base.mean(), base.std()
+    threshold = mu + 2 * sd
+    spike = bool(recent > threshold)
+    pct = (recent - mu) / max(mu, 1) * 100
+    return dict(store=store, dept=dept, recent_7d_avg=round(float(recent), 2),
+                baseline_mean=round(float(mu), 2), baseline_std=round(float(sd), 2),
+                threshold=round(float(threshold), 2), spike=spike,
+                change_pct=round(float(pct), 1))
+
+
 def run_risk_scan() -> list[dict]:
     alerts = []
     for store in ["CA_1", "CA_2", "TX_1", "TX_2", "WI_1"]:

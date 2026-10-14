@@ -59,6 +59,13 @@ def _deterministic(query: str) -> dict:
         ans = (f"{store}/{dept}: on hand {r['on_hand']}, safety {r['safety_stock']}, "
                f"supplier {r['supplier']} (lead {r['lead_time_days']}d).")
         return {"steps": steps, "answer": ans, "backend": "offline-router"}
+    if any(k in q for k in ["spike", "surge", "anomaly"]):
+        obs = tools.execute_tool("detect_demand_spike", {"store": store, "dept": dept})
+        steps.append({"thought": f"Detecting demand spike for {store}/{dept}.", "tool": "detect_demand_spike",
+                      "args": {"store": store, "dept": dept}, "observation": obs})
+        ans = (f"{store}/{dept}: spike={obs['spike']} (recent 7d avg {obs['recent_7d_avg']} vs baseline {obs['baseline_mean']}±{obs['baseline_std']}, "
+               f"{obs['change_pct']}%).")
+        return {"steps": steps, "answer": ans, "backend": "offline-router"}
     if any(k in q for k in ["risk", "stockout", "shortage"]):
         obs = tools.execute_tool("detect_stockout_risk", {"store": store, "dept": dept})
         steps.append({"thought": f"Assessing stockout risk for {store}/{dept}.", "tool": "detect_stockout_risk",

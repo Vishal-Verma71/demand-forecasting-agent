@@ -93,6 +93,21 @@ OPENAI_TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "detect_demand_spike",
+            "description": "Detect sudden demand spikes for a store/department vs. trailing baseline.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "store": {"type": "string", "enum": STORES},
+                    "dept": {"type": "string", "enum": DEPARTMENTS},
+                },
+                "required": ["store", "dept"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "run_risk_scan",
             "description": "Scan all store/department combinations and flag stockout risks, raising alerts.",
             "parameters": {"type": "object", "properties": {}},
@@ -135,6 +150,8 @@ def execute_tool(name: str, args: dict) -> dict:
                 inventory.seed_inventory_from_data()
                 rows = inventory.get_inventory(args.get("store"), args.get("dept"))
             return {"tool": name, "rows": rows}
+        if name == "detect_demand_spike":
+            return {"tool": name, **inventory.detect_demand_spike(args["store"], args["dept"])}
         if name == "run_risk_scan":
             alerts = inventory.run_risk_scan()
             return {"tool": name, "flagged": len(alerts), "items": alerts}

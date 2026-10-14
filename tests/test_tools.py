@@ -30,3 +30,10 @@ def test_reorder():
     r = inventory.reorder_recommendation("CA_1", "FOODS")
     assert r["recommended_qty"] >= 0
     assert r["supplier"]
+
+
+def test_spike():
+    db.init_db()
+    df = load_or_generate()
+    s = inventory.detect_demand_spike("CA_1", "FOODS")
+    assert "spike" in s and isinstance(s["spike"], bool)

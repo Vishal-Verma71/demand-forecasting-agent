@@ -43,6 +43,13 @@ tests/                 pytest
 - pytrends for external demand signals
 - Streamlit + Plotly for UI, OpenAI-compatible clients (Groq/OpenAI/Ollama) for the agent
 
+## Data
+- Default: synthetic but realistic Walmart-style store/department daily demand (auto-generated).
+- To use a real dataset, place a CSV at `data/supply_chain_sales.csv` with columns
+  `Store, Dept, Date, Sales, OnHand, Supplier, LeadTime, Promo, Holiday` and rerun
+  `python scripts/train.py`. Kaggle M5 or the Walmart store-sales dataset can be
+  adapted to this schema (a mapping note is in `src/data.py`).
+
 ## Notes
 - Designed to run on 8 GB RAM: models trained once and cached; app loads from cache.
 - No API keys required; offline deterministic router keeps the demo functional anywhere.
