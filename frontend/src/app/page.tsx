@@ -166,6 +166,66 @@ export default function Home() {
   const btn: React.CSSProperties = { background: "#6366f1", color: "#fff", border: "none", borderRadius: 10, padding: "8px 14px", cursor: "pointer", fontWeight: 600 };
   const input: React.CSSProperties = { background: "#0f172a", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 10, padding: "8px 12px" };
 
+  function renderMarkdown(md: string) {
+    const lines = md.split("\\n");
+    const out: React.ReactNode[] = [];
+    let i = 0;
+    let key = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (line.startsWith("# ")) {
+        out.push(<h2 key={key++} style={{ color: "#e2e8f0", marginTop: 8 }}>{line.replace(/^#\\s*/, "")}</h2>);
+        i++;
+        continue;
+      }
+      if (line.startsWith("## ")) {
+        out.push(<h3 key={key++} style={{ color: "#cbd5e1", marginTop: 14 }}>{line.replace(/^##\\s*/, "")}</h3>);
+        i++;
+        continue;
+      }
+      if (line.trim().startsWith("|")) {
+        const rows: string[][] = [];
+        while (i < lines.length && lines[i].trim().startsWith("|")) {
+          rows.push(lines[i].trim().split("|").slice(1, -1).map((x) => x.trim()));
+          i++;
+        }
+        // remove separator row
+        const bodyRows = rows.filter((r) => !r.every((c) => /^[-:]+$/.test(c)));
+        const header = bodyRows.length ? bodyRows[0] : [];
+        const body = bodyRows.slice(1);
+        out.push(
+          <table key={key++} style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, margin: "8px 0", tableLayout: "fixed" }}>
+            <thead>
+              <tr style={{ background: "#1e293b" }}>
+                {header.map((h, hi) => <th key={hi} style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #334155" }}>{h}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {body.map((row, ri) => (
+                <tr key={ri} style={{ borderTop: "1px solid #1f2a3d" }}>
+                  {row.map((cell, ci) => <td key={ci} style={{ padding: 8 }}>{cell}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        );
+        continue;
+      }
+      if (line.trim().startsWith("- ")) {
+        out.push(<div key={key++} style={{ marginLeft: 18, listStyle: "disc" }}>• {line.trim().slice(2)}</div>);
+        i++;
+        continue;
+      }
+      if (line.trim() === "") {
+        i++;
+        continue;
+      }
+      out.push(<p key={key++} style={{ color: "#cbd5e1", margin: "6px 0" }}>{line}</p>);
+      i++;
+    }
+    return <div>{out}</div>;
+  }
+
   return (
     <div style={page}>
       <div style={{ ...card, background: "radial-gradient(1200px 300px at 10% -20%, #312e81 0%, #0f172a 60%)", marginBottom: 18 }}>
@@ -340,7 +400,7 @@ export default function Home() {
               <div style={{ maxHeight: 300, overflow: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead>
-                    <tr style={{ color: "#94a3b8" }}><th style={{ textAlign: "left" }}>Date</th><th>yhat</th><th>lower</th><th>upper</th></tr>
+                    <tr style={{ color: "#94a3b8" }}><th style={{ textAlign: "left" }}>Date</th><th style={{ textAlign: "right" }}>Forecast</th><th style={{ textAlign: "right" }}>Lower bound</th><th style={{ textAlign: "right" }}>Upper bound</th></tr>
                   </thead>
                   <tbody>
                     {(forecast.records || []).map((r: any, i: number) => (
@@ -360,9 +420,9 @@ export default function Home() {
           {tab === "reorders" && (
             <div style={card}>
               <h3 style={{ marginTop: 0 }}>Reorder recommendations</h3>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 16 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 13, marginBottom: 16 }}>
                 <thead>
-                  <tr style={{ color: "#94a3b8" }}><th>Store</th><th>Dept</th><th>Qty</th><th>Supplier</th><th>Lead</th><th>Risk</th></tr>
+                  <tr style={{ color: "#94a3b8" }}><th>Store</th><th>Department</th><th style={{ textAlign: "right" }}>Qty</th><th>Supplier</th><th style={{ textAlign: "center" }}>Lead days</th><th>Risk</th></tr>
                 </thead>
                 <tbody>
                   {reorders.map((r, i) => (
@@ -388,8 +448,8 @@ export default function Home() {
               </div>
               <h4>Draft POs</h4>
               <div style={{ maxHeight: 240, overflow: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                  <thead><tr style={{ color: "#94a3b8" }}><th>ID</th><th>Store</th><th>Dept</th><th>Qty</th><th>Supplier</th><th>Lead</th><th>Status</th></tr></thead>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, tableLayout: "fixed" }}>
+                  <thead><tr style={{ color: "#94a3b8" }}><th>ID</th><th>Store</th><th>Dept</th><th style={{ textAlign: "right" }}>Qty</th><th>Supplier</th><th style={{ textAlign: "center" }}>Lead days</th><th>Status</th></tr></thead>
                   <tbody>
                     {pos.map((p) => (
                       <tr key={p.id} style={{ borderTop: "1px solid #1f2a3d" }}>
@@ -412,9 +472,11 @@ export default function Home() {
                   const a = document.createElement("a");
                   a.href = url; a.download = "supply_chain_report.md"; a.click();
                   URL.revokeObjectURL(url);
-                }}>⬇ Download</button>
+                }}>⬇ Download Markdown</button>
               </div>
-              <pre style={{ whiteSpace: "pre-wrap", background: "#0b1220", padding: 14, borderRadius: 12, border: "1px solid #1f2a3d", fontSize: 13, maxHeight: 600, overflow: "auto" }}>{reportMd}</pre>
+              <div style={{ background: "#0b1220", padding: 14, borderRadius: 12, border: "1px solid #1f2a3d", fontSize: 13, maxHeight: 600, overflow: "auto" }}>
+                {renderMarkdown(reportMd)}
+              </div>
             </div>
           )}
         </div>
