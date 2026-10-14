@@ -21,7 +21,7 @@ OPENAI_TOOLS = [
         "type": "function",
         "function": {
             "name": "forecast_demand",
-            "description": "Forecast demand for a store/department for the next N days using Prophet (primary) and LightGBM (comparison).",
+            "description": "Forecast demand for a store/department for the next N days using the global gradient-boosting model.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -142,7 +142,7 @@ def execute_tool(name: str, args: dict) -> dict:
         if name == "recommend_reorder":
             store = args["store"]; dept = args["dept"]; horizon = int(args.get("horizon", 28))
             rec = inventory.reorder_recommendation(store, dept, horizon)
-            po = inventory.approve_po(store, dept)
+            po = inventory.approve_po(store, dept, horizon)
             return {"tool": name, "recommendation": rec, "po": po}
         if name == "inventory_snapshot":
             rows = inventory.get_inventory(args.get("store"), args.get("dept"))

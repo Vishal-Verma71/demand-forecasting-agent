@@ -42,6 +42,6 @@ def build_report() -> str:
         lines.append(f"- PO#{p['id']} {p['store']}/{p['dept']} — {p['qty']} units from {p['supplier']} (lead {p['lead_time_days']}d) [{p['status']}]")
     lines.append("")
     lines.append("## 6. Method")
-    lines.append("Prophet (per series, multiplicative seasonality) + LightGBM (global). Agent uses ReAct loop with 6 tools,")
-    lines.append("supports Groq/OpenAI/Ollama or a fully offline deterministic router. External trend via pytrends (fallback when offline).")
+    lines.append("HistGradientBoostingRegressor (scikit-learn global model). Agent uses ReAct loop with 7 tools,")
+    lines.append("supports Groq/OpenAI/Ollama or a fully offline deterministic router. External trend via pytrends (fallback if unavailable).")
     return "\n".join(lines)

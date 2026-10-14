@@ -26,7 +26,7 @@ def seed_inventory_from_data(df=None) -> None:
     upsert_inventory(rows)
 
 
-def stock_status(store: str, dept: str, horizon: int = 14) -> dict:
+def stock_status(store: str, dept: str, horizon: int = 28) -> dict:
     inv_rows = get_inventory(store, dept)
     inv = inv_rows[0] if inv_rows else None
     on_hand = float(inv["on_hand"]) if inv else 0.0
@@ -101,7 +101,7 @@ def run_risk_scan() -> list[dict]:
     return alerts
 
 
-def approve_po(store, dept) -> dict:
-    rec = reorder_recommendation(store, dept)
+def approve_po(store, dept, horizon: int = 28) -> dict:
+    rec = reorder_recommendation(store, dept, horizon)
     po_id = add_po(store, dept, rec["supplier"], rec["recommended_qty"], rec["lead_time_days"])
-    return {"po_id": po_id, **rec, "status": "DRAFT created"}
+    return {"po_id": po_id, **rec, "status": "DRAFT created", "planning_horizon_days": horizon}

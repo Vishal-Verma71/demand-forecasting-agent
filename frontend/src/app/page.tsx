@@ -49,8 +49,8 @@ export default function Home() {
   async function fetchAll() {
     const [h, k, r, a] = await Promise.all([
       fetch(`${API}/health`).then((x) => x.json()),
-      fetch(`${API}/kpi`).then((x) => x.json()),
-      fetch(`${API}/dashboard/risk`).then((x) => x.json()),
+      fetch(`${API}/kpi?horizon=${horizon}`).then((x) => x.json()),
+      fetch(`${API}/dashboard/risk?horizon=${horizon}`).then((x) => x.json()),
       fetch(`${API}/alerts`).then((x) => x.json()),
     ]);
     setHealth(h);
@@ -96,6 +96,10 @@ export default function Home() {
   useEffect(() => {
     fetchAll();
   }, []);
+
+  useEffect(() => {
+    fetchAll();
+  }, [horizon]);
 
   useEffect(() => {
     loadSeries();
@@ -147,7 +151,7 @@ export default function Home() {
     await fetch(`${API}/reorder`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ store: s, dept: d }),
+      body: JSON.stringify({ store: s, dept: d, horizon }),
     });
     await loadReorders();
   }
@@ -268,11 +272,13 @@ export default function Home() {
               <div style={card}>
                 <h3 style={{ marginTop: 0 }}>Recent demand — {store} / {dept}</h3>
                 <div style={{ height: 200, display: "flex", alignItems: "flex-end", gap: 2, borderBottom: "1px solid #334155", paddingBottom: 4 }}>
-                  {series.map((s, i) => {
-                    const max = Math.max(...series.map((x) => x.Sales));
-                    const h = (s.Sales / max) * 180;
-                    return <div key={i} title={`${s.Date}: ${s.Sales}`} style={{ width: 3, height: h, background: "#6366f1", borderRadius: 2 }} />;
-                  })}
+                  {series.length > 0 && (() => {
+                    const max = Math.max(...series.map((x: any) => Number(x.Sales) || 0));
+                    return series.map((s: any, i: number) => {
+                      const h = max > 0 ? (Number(s.Sales) / max) * 180 : 0;
+                      return <div key={i} title={`${s.Date}: ${s.Sales}`} style={{ width: 3, height: h, background: "#6366f1", borderRadius: 2 }} />;
+                    });
+                  })()}
                 </div>
                 <div style={{ color: "#64748b", fontSize: 11, marginTop: 4 }}>{series.length} days</div>
               </div>

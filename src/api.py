@@ -63,13 +63,13 @@ def health():
 
 
 @app.get("/kpi")
-def kpi():
+def kpi(horizon: int = 28):
     df = get_df()
     inv = inventory.get_inventory()
     at_risk = []
     for s in STORES:
         for d in DEPARTMENTS:
-            stt = inventory.stock_status(s, d)
+            stt = inventory.stock_status(s, d, horizon)
             if stt["risk_level"] in ("CRITICAL", "WARNING"):
                 at_risk.append(stt)
     pos = db.get_pos(10000)
@@ -85,11 +85,11 @@ def kpi():
 
 
 @app.get("/dashboard/risk")
-def dashboard_risk():
+def dashboard_risk(horizon: int = 28):
     items = []
     for s in STORES:
         for d in DEPARTMENTS:
-            stt = inventory.stock_status(s, d)
+            stt = inventory.stock_status(s, d, horizon)
             items.append({"store": s, "dept": d, "days_of_supply": stt["days_of_supply"],
                           "risk_level": stt["risk_level"], "on_hand": stt["on_hand"],
                           "avg_daily_demand": stt["avg_daily_demand"]})
@@ -159,7 +159,8 @@ def reorder(store: str, dept: str, horizon: int = 28):
 def reorder_create(payload: dict = Body(...)):
     store = payload.get("store")
     dept = payload.get("dept")
-    rec = inventory.approve_po(store, dept)
+    horizon = int(payload.get("horizon", 28) or 28)
+    rec = inventory.approve_po(store, dept, horizon)
     return {"result": rec}
 
 
