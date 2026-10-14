@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
 from pathlib import Path
 
 from fastapi import FastAPI, Query, Body
@@ -18,7 +19,7 @@ from src.config import STORES, DEPARTMENTS, MODEL_DIR
 from src.data import load_or_generate
 from src.features import build_series
 from src.llm import backend_name, is_available
-from src.model import models_ready, train_all, forecast_demand, get_metrics
+from src.model import models_ready, train_all, forecast_demand, get_metrics, clear_model_cache
 from src.trends import query_trend
 
 app = FastAPI(title="Demand Forecasting Agent API", version="1.0.0")
@@ -42,9 +43,19 @@ def get_df():
     return _df_cache
 
 
+def _prewarm_model_cache():
+    try:
+        for s in STORES:
+            for d in DEPARTMENTS:
+                inventory.stock_status(s, d, 28)
+    except Exception:
+        pass
+
+
 @app.on_event("startup")
 def startup():
     get_df()
+    threading.Thread(target=_prewarm_model_cache, daemon=True).start()
 
 
 def _jsonable(df):
@@ -184,6 +195,8 @@ def report_md():
 def train():
     df = get_df()
     lb = train_all(df)
+    clear_model_cache()
+    inventory.clear_stock_cache()
     return {"metrics": lb["metrics"], "models_ready": models_ready()}
 
 

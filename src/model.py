@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
 
 import joblib
@@ -16,6 +17,11 @@ from .data import load_or_generate
 
 FEATURES = ["store", "dept", "dow", "month", "promo",
             "lag_1", "lag_7", "lag_28", "roll_7", "roll_28"]
+
+
+@lru_cache(maxsize=1)
+def _load_bundle():
+    return joblib.load(MODEL_DIR / "gb_global.joblib")
 
 
 def _featurize(df: pd.DataFrame) -> pd.DataFrame:
@@ -68,17 +74,20 @@ def train_model(df: pd.DataFrame = None, holdout_days: int = 28):
     }
     joblib.dump(bundle, MODEL_DIR / "gb_global.joblib")
     (MODEL_DIR / "gb_metrics.json").write_text(json.dumps(bundle["metrics"], indent=2))
+    clear_model_cache()
     return bundle
 
 
+@lru_cache(maxsize=256)
 def forecast_demand(store: str, dept: str, horizon: int = 28) -> pd.DataFrame:
-    bundle = joblib.load(MODEL_DIR / "gb_global.joblib")
+    bundle = _load_bundle()
     model = bundle["model"]
     base_df = load_or_generate()
     sub = base_df[(base_df["Store"] == store) & (base_df["Dept"] == dept)].sort_values("Date").copy()
     last_date = sub["Date"].max()
     fut_dates = pd.date_range(last_date + pd.Timedelta(days=1), periods=horizon, freq="D")
-    hist = sub.copy()
+    # Keep only the recent history needed for lag_28/rolling features.
+    hist = sub.tail(45).copy().reset_index(drop=True)
     preds = []
     for d in fut_dates:
         new_row = {"Store": store, "Dept": dept, "Date": d, "Sales": np.nan,
@@ -92,6 +101,9 @@ def forecast_demand(store: str, dept: str, horizon: int = 28) -> pd.DataFrame:
         p = max(0.0, p)
         preds.append(p)
         hist.loc[hist.index[-1], "Sales"] = p
+        # Keep the sliding window bounded.
+        if len(hist) > 45:
+            hist = hist.tail(45).reset_index(drop=True)
     out = pd.DataFrame({"Date": fut_dates, "yhat": preds})
     out["yhat_lower"] = (out["yhat"] * 0.82).clip(lower=0)
     out["yhat_upper"] = out["yhat"] * 1.18
@@ -113,3 +125,11 @@ def get_metrics():
     if p.exists():
         return json.loads(p.read_text())
     return {}
+
+
+def clear_model_cache():
+    _load_bundle.cache_clear()
+    try:
+        forecast_demand.cache_clear()
+    except AttributeError:
+        pass

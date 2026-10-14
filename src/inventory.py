@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sqlite3
+from functools import lru_cache
 from datetime import timedelta
 
 import numpy as np
@@ -24,8 +25,10 @@ def seed_inventory_from_data(df=None) -> None:
                          on_hand=float(r["OnHand"]), safety_stock=float(r["OnHand"]) * 0.3,
                          lead_time_days=int(r["LeadTime"]), supplier=r["Supplier"]))
     upsert_inventory(rows)
+    stock_status.cache_clear()
 
 
+@lru_cache(maxsize=512)
 def stock_status(store: str, dept: str, horizon: int = 28) -> dict:
     inv_rows = get_inventory(store, dept)
     inv = inv_rows[0] if inv_rows else None
@@ -105,3 +108,10 @@ def approve_po(store, dept, horizon: int = 28) -> dict:
     rec = reorder_recommendation(store, dept, horizon)
     po_id = add_po(store, dept, rec["supplier"], rec["recommended_qty"], rec["lead_time_days"])
     return {"po_id": po_id, **rec, "status": "DRAFT created", "planning_horizon_days": horizon}
+
+
+def clear_stock_cache():
+    try:
+        stock_status.cache_clear()
+    except AttributeError:
+        pass
