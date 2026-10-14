@@ -165,6 +165,8 @@ export default function Home() {
   const card: React.CSSProperties = { background: "#101826", border: "1px solid #1f2a3d", borderRadius: 16, padding: 18, boxShadow: "0 8px 24px rgba(0,0,0,.25)" };
   const btn: React.CSSProperties = { background: "#6366f1", color: "#fff", border: "none", borderRadius: 10, padding: "8px 14px", cursor: "pointer", fontWeight: 600 };
   const input: React.CSSProperties = { background: "#0f172a", color: "#e2e8f0", border: "1px solid #334155", borderRadius: 10, padding: "8px 12px" };
+  const thStyle: React.CSSProperties = { padding: 8, borderBottom: "1px solid #334155", color: "#94a3b8", fontWeight: 600, textAlign: "left", whiteSpace: "nowrap" };
+  const tdStyle: React.CSSProperties = { padding: 8, borderTop: "1px solid #1f2a3d", verticalAlign: "top" };
 
   function renderMarkdown(md: string) {
     const lines = md.split("\\n");
@@ -297,16 +299,21 @@ export default function Home() {
               <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 18 }}>
                 <div style={card}>
                   <h3 style={{ marginTop: 0 }}>Inventory risk map</h3>
-                  <div style={{ display: "grid", gap: 6 }}>
-                    {riskItems.map((r) => (
-                      <div key={r.store + r.dept} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #1f2a3d" }}>
-                        <span>{r.store} / {r.dept}</span>
-                        <span style={{ color: r.risk_level === "CRITICAL" ? "#ef4444" : r.risk_level === "WARNING" ? "#f59e0b" : "#22c55e" }}>
-                          {r.days_of_supply} days · {r.risk_level}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ color: "#94a3b8" }}><th style={thStyle}>Store / Department</th><th style={thStyle}>Days of supply</th><th style={thStyle}>On hand</th><th style={thStyle}>Risk</th></tr>
+                    </thead>
+                    <tbody>
+                      {riskItems.map((r) => (
+                        <tr key={r.store + r.dept} style={{ borderTop: "1px solid #1f2a3d" }}>
+                          <td style={tdStyle}>{r.store} / {r.dept}</td>
+                          <td style={{ ...tdStyle, textAlign: "center" }}>{r.days_of_supply}</td>
+                          <td style={{ ...tdStyle, textAlign: "right" }}>{r.on_hand}</td>
+                          <td style={{ ...tdStyle, color: r.risk_level === "CRITICAL" ? "#ef4444" : r.risk_level === "WARNING" ? "#f59e0b" : "#22c55e" }}>{r.risk_level}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                   <button style={{ ...btn, marginTop: 10 }} onClick={riskScan}>🔎 Run full risk scan</button>
                 </div>
                 <div style={card}>
@@ -331,16 +338,42 @@ export default function Home() {
               </div>
               <div style={card}>
                 <h3 style={{ marginTop: 0 }}>Recent demand — {store} / {dept}</h3>
-                <div style={{ height: 200, display: "flex", alignItems: "flex-end", gap: 2, borderBottom: "1px solid #334155", paddingBottom: 4 }}>
-                  {series.length > 0 && (() => {
-                    const max = Math.max(...series.map((x: any) => Number(x.Sales) || 0));
-                    return series.map((s: any, i: number) => {
-                      const h = max > 0 ? (Number(s.Sales) / max) * 180 : 0;
-                      return <div key={i} title={`${s.Date}: ${s.Sales}`} style={{ width: 3, height: h, background: "#6366f1", borderRadius: 2 }} />;
-                    });
-                  })()}
-                </div>
-                <div style={{ color: "#64748b", fontSize: 11, marginTop: 4 }}>{series.length} days</div>
+                <p style={{ color: "#94a3b8", fontSize: 12, margin: "0 0 8px" }}>Sales units over the last {series.length} days</p>
+                {series.length === 0 ? (
+                  <div style={{ color: "#64748b" }}>No series data available.</div>
+                ) : (
+                  <svg width="100%" height="260" viewBox="0 0 640 260" style={{ background: "#0b1220", borderRadius: 12, border: "1px solid #1f2a3d" }}>
+                    {(() => {
+                      const max = Math.max(...series.map((x: any) => Number(x.Sales) || 0), 1);
+                      const left = 48, top = 18, bottom = 228, width = 560, height = bottom - top;
+                      const barWidth = width / series.length;
+                      const ticks = [0, max / 2, max];
+                      return (
+                        <>
+                          {/* Y axis */}
+                          <line x1={left} y1={top} x2={left} y2={bottom} stroke="#334155" />
+                          {ticks.map((t, i) => (
+                            <g key={i}>
+                              <line x1={left - 4} y1={bottom - (t / max) * height} x2={left} y2={bottom - (t / max) * height} stroke="#334155" />
+                              <text x={left - 8} y={bottom - (t / max) * height + 4} fill="#94a3b8" fontSize="10" textAnchor="end">{Math.round(t)}</text>
+                            </g>
+                          ))}
+                          <text x="12" y={top + height / 2} fill="#94a3b8" fontSize="11" textAnchor="middle" transform={`rotate(-90 12 ${top + height / 2})`}>Sales units</text>
+                          {/* Bars */}
+                          {series.map((s: any, i: number) => {
+                            const h = ((Number(s.Sales) || 0) / max) * height;
+                            return <rect key={i} x={left + i * barWidth + 1} y={bottom - h} width={Math.max(1, barWidth - 2)} height={h} fill="#6366f1" rx="1"><title>{`${s.Date}: ${s.Sales}`}</title></rect>;
+                          })}
+                          {/* X axis */}
+                          <line x1={left} y1={bottom} x2={left + width} y2={bottom} stroke="#334155" />
+                          <text x={left} y={bottom + 16} fill="#94a3b8" fontSize="10">{String(series[0].Date).slice(0, 10)}</text>
+                          <text x={left + width} y={bottom + 16} fill="#94a3b8" fontSize="10" textAnchor="end">{String(series[series.length - 1].Date).slice(0, 10)}</text>
+                          <text x={left + width / 2} y={252} fill="#94a3b8" fontSize="11" textAnchor="middle">Recent daily demand</text>
+                        </>
+                      );
+                    })()}
+                  </svg>
+                )}
               </div>
             </>
           )}
@@ -390,13 +423,44 @@ export default function Home() {
                   {forecast.metrics && <span>MAPE {forecast.metrics.MAPE}% · MAE {forecast.metrics.MAE}</span>}
                 </div>
               )}
-              <div style={{ height: 260, display: "flex", alignItems: "flex-end", gap: 2, borderBottom: "1px solid #334155", paddingBottom: 4, marginBottom: 12 }}>
-                {(forecast.records || []).map((r: any, i: number) => {
-                  const max = Math.max(...(forecast.records || []).map((x: any) => x.yhat));
-                  const h = (r.yhat / max) * 240;
-                  return <div key={i} title={`${r.Date}: ${r.yhat}`} style={{ width: 4, height: h, background: "#6366f1", borderRadius: 2 }} />;
-                })}
-              </div>
+              <svg width="100%" height="280" viewBox="0 0 640 280" style={{ background: "#0b1220", borderRadius: 12, border: "1px solid #1f2a3d", marginBottom: 12 }}>
+                {(() => {
+                  const recs = forecast.records || [];
+                  const max = Math.max(...recs.map((x: any) => Math.max(Number(x.yhat) || 0, Number(x.yhat_upper) || 0)), 1);
+                  const left = 48, top = 18, bottom = 238, width = 560, height = bottom - top;
+                  const barWidth = width / (recs.length || 1);
+                  const ticks = [0, max / 2, max];
+                  return (
+                    <>
+                      {/* Y axis */}
+                      <line x1={left} y1={top} x2={left} y2={bottom} stroke="#334155" />
+                      {ticks.map((t, i) => (
+                        <g key={i}>
+                          <line x1={left - 4} y1={bottom - (t / max) * height} x2={left} y2={bottom - (t / max) * height} stroke="#334155" />
+                          <text x={left - 8} y={bottom - (t / max) * height + 4} fill="#94a3b8" fontSize="10" textAnchor="end">{Math.round(t)}</text>
+                        </g>
+                      ))}
+                      <text x="12" y={top + height / 2} fill="#94a3b8" fontSize="11" textAnchor="middle" transform={`rotate(-90 12 ${top + height / 2})`}>Forecast units</text>
+                      {/* Forecast bars */}
+                      {recs.map((r: any, i: number) => {
+                        const h = ((Number(r.yhat) || 0) / max) * height;
+                        const uh = ((Number(r.yhat_upper) || 0) / max) * height;
+                        return (
+                          <g key={i}>
+                            <rect x={left + i * barWidth + 1} y={bottom - uh} width={Math.max(1, barWidth - 2)} height={Math.max(0, uh - h)} fill="rgba(99,102,241,.18)" rx="1" />
+                            <rect x={left + i * barWidth + 1} y={bottom - h} width={Math.max(1, barWidth - 2)} height={h} fill="#6366f1" rx="1"><title>{`${r.Date}: forecast ${r.yhat}, lower ${r.yhat_lower}, upper ${r.yhat_upper}`}</title></rect>
+                          </g>
+                        );
+                      })}
+                      {/* X axis */}
+                      <line x1={left} y1={bottom} x2={left + width} y2={bottom} stroke="#334155" />
+                      <text x={left} y={bottom + 16} fill="#94a3b8" fontSize="10">{String(recs[0]?.Date).slice(0, 10)}</text>
+                      <text x={left + width} y={bottom + 16} fill="#94a3b8" fontSize="10" textAnchor="end">{String(recs[recs.length - 1]?.Date).slice(0, 10)}</text>
+                      <text x={left + width / 2} y={268} fill="#94a3b8" fontSize="11" textAnchor="middle">Forecast horizon</text>
+                    </>
+                  );
+                })()}
+              </svg>
               <div style={{ maxHeight: 300, overflow: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead>
