@@ -1,0 +1,24 @@
+# Core data / ML
+pandas>=2.0
+numpy>=1.26
+scikit-learn>=1.3
+# prophet>=1.1        # optional: requires cmdstan toolchain on some platforms
+# lightgbm>=4.0      # optional: build issues on some Windows/Python combos
+joblib>=1.3
+
+# UI
+streamlit>=1.35
+plotly>=5.18
+
+# Agent / LLM (optional backends)
+openai>=1.30
+python-dotenv>=1.0
+pytrends>=4.9
+
+# DB / utils
+sqlalchemy>=2.0
+requests>=2.31
+
+# Dev / tests
+pytest>=7.4
+ruff>=0.4

@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.pytest_cache/
+
+# Models (regenerated)
+models/*.joblib
+models/*.json
+*.pkl
+
+# Data cache
+data/*.parquet
+data/raw/
+
+# OS
+.DS_Store
+Thumbs.db
