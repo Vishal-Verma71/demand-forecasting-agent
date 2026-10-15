@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Table } from "@/components/Table";
 import { LoadingStatus } from "@/components/Spinner";
+import { HeaderBanner } from "@/components/HeaderBanner";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -422,22 +423,17 @@ export default function Home() {
 
   return (
     <div style={page}>
-      <div style={{ ...card, background: "linear-gradient(135deg, #4c1d95 0%, #312e81 45%, #0f172a 100%)", marginBottom: 18 }}>
-        <h1 style={{ margin: 0, fontSize: 30, fontWeight: 800, background: "linear-gradient(90deg,#6366f1,#22d3ee)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-          Demand Forecasting Agent
-        </h1>
-        <p style={{ color: "#cbd5e1", margin: "6px 0 12px" }}>
-          Walmart M5 demand · LightGBM forecasts · stockout risk · supplier allocation · human-approved purchase orders
-        </p>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ padding: "3px 10px", borderRadius: 999, background: "#1f2937", border: "1px solid #334155", fontSize: 12 }}>Stores: {(health?.stores ?? STORES).join(", ")}</span>
-          <span style={{ padding: "3px 10px", borderRadius: 999, background: "#1f2937", border: "1px solid #334155", fontSize: 12 }}>Departments: {(health?.departments ?? DEPTS).join(", ")}</span>
-          <span style={{ padding: "3px 10px", borderRadius: 999, background: "#1f2937", border: "1px solid #334155", fontSize: 12 }}>Model: {health?.model ?? "LightGBM"}</span>
-          <span style={{ padding: "3px 10px", borderRadius: 999, background: "#1f2937", border: "1px solid #334155", fontSize: 12 }}>Rows: {kpi?.rows ?? 0}</span>
-          <span style={{ padding: "3px 10px", borderRadius: 999, background: "#1f2937", border: "1px solid #334155", fontSize: 12 }}>Horizon: {horizon}d</span>
-          <span style={{ padding: "3px 10px", borderRadius: 999, background: "#1f2937", border: "1px solid #334155", fontSize: 12 }}>Agent planner: {health?.llm_available ? `LLM (${health.llm_backend})` : "offline planner"}</span>
-        </div>
-      </div>
+      <HeaderBanner
+        stores={health?.stores ?? STORES}
+        departments={health?.departments ?? DEPTS}
+        model={health?.model ?? "LightGBM"}
+        rows={kpi?.rows ?? 0}
+        horizon={horizon}
+        dataThrough={series.length ? String(series[series.length - 1].Date).slice(0, 10) : undefined}
+        modelReady={!!health?.models_ready}
+        llm={!!health?.llm_available}
+        planner={health?.llm_available ? `LLM · ${health.llm_backend}` : "Offline"}
+      />
 
       <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 18 }}>
         <div style={{ ...card, height: "fit-content" }}>
