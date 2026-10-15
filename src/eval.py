@@ -1,4 +1,4 @@
-﻿"""Chronological backtesting for the M5-backed store/department forecasts."""
+"""Chronological backtesting for the M5-backed store/department forecasts."""
 
 from __future__ import annotations
 
@@ -9,25 +9,17 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-from .config import BASE_DIR, STORES, DEPARTMENTS, RANDOM_SEED
+from .config import BASE_DIR, STORES, DEPARTMENTS
 from .data import load_or_generate
-from .model import FEATURES, _featurize
+from .model import FEATURES, MODEL_NAME, MODEL_PARAMS, _featurize, make_regressor, recursive_forecast
 
 REPORT_DIR = BASE_DIR / "reports"
 PREDICTIONS_PATH = REPORT_DIR / "backtest_predictions.csv"
 METRICS_PATH = REPORT_DIR / "backtest_metrics.json"
 
-DEFAULT_HORIZON = 51
-MODEL_PARAMS = {
-    "max_iter": 300,
-    "learning_rate": 0.06,
-    "max_leaf_nodes": 31,
-    "l2_regularization": 1.0,
-    "random_state": RANDOM_SEED,
-}
+DEFAULT_HORIZON = 28  # M5 competition horizon
 
 
 def _metric_dict(actual: np.ndarray, prediction: np.ndarray) -> dict:
@@ -50,53 +42,34 @@ def _metric_dict(actual: np.ndarray, prediction: np.ndarray) -> dict:
 
 
 def _fit_regressor(train_df: pd.DataFrame):
+    """Fit on the training window; report a genuine out-of-sample validation score.
+
+    The validation model is trained without the last 28 training days and scored on
+    them, then the returned model is refit on the full training window.
+    """
     features = _featurize(train_df.copy()).dropna(subset=["lag_28", "roll_28"])
-    x_train = features[FEATURES].astype(float).values
-    y_train = features["Sales"].astype(float).values
-    model = HistGradientBoostingRegressor(**MODEL_PARAMS)
-    model.fit(x_train, y_train)
-    train_holdout = features["Date"].max() - pd.Timedelta(days=28)
-    validation = features[features["Date"] > train_holdout]
+    val_start = features["Date"].max() - pd.Timedelta(days=28)
+    fit_part = features[features["Date"] <= val_start]
+    validation = features[features["Date"] > val_start]
     holdout_metric = None
-    if len(validation):
-        holdout_prediction = model.predict(validation[FEATURES].astype(float).values)
+    if len(validation) and len(fit_part):
+        val_model = make_regressor()
+        val_model.fit(fit_part[FEATURES].astype(float), fit_part["Sales"].astype(float))
+        holdout_prediction = val_model.predict(validation[FEATURES].astype(float))
         holdout_metric = {
+            "validation": "one-step-ahead on the last 28 training days, model fit without them",
             "validation_observations": int(len(validation)),
             "validation_MAE": round(float(mean_absolute_error(validation["Sales"], holdout_prediction)), 4),
             "validation_RMSE": round(float(np.sqrt(mean_squared_error(validation["Sales"], holdout_prediction))), 4),
         }
+    model = make_regressor()
+    model.fit(features[FEATURES].astype(float), features["Sales"].astype(float))
     return model, holdout_metric
 
 
 def _recursive_forecast(model, train_series: pd.DataFrame, future_dates: pd.DataFrame, store: str, dept: str) -> list[float]:
     """Forecast future dates without using any actual sales from those dates."""
-    history = train_series[["Store", "Dept", "Date", "Sales", "OnHand", "Promo", "Holiday"]].copy()
-    history["Date"] = pd.to_datetime(history["Date"])
-    history = history.sort_values("Date").tail(45).reset_index(drop=True)
-
-    predictions = []
-    for row in future_dates.sort_values("Date").itertuples(index=False):
-        on_hand = float(history["OnHand"].iloc[-1])
-        new_row = pd.DataFrame([{
-            "Store": store,
-            "Dept": dept,
-            "Date": pd.Timestamp(row.Date),
-            "Sales": np.nan,
-            "OnHand": on_hand,
-            "Promo": int(getattr(row, "Promo", 0)),
-            "Holiday": int(getattr(row, "Holiday", 0)),
-        }])
-        history = pd.concat([history, new_row], ignore_index=True)
-        feature_frame = _featurize(history)
-        latest = feature_frame.iloc[-1:]
-        x = latest[FEATURES].astype(float).values
-        prediction = float(model.predict(x)[0])
-        prediction = max(0.0, prediction)
-        predictions.append(prediction)
-        history.loc[history.index[-1], "Sales"] = prediction
-        if len(history) > 45:
-            history = history.tail(45).reset_index(drop=True)
-    return predictions
+    return recursive_forecast(model, train_series, future_dates, store, dept)
 
 
 def _baseline_forecasts(train_series: pd.DataFrame, horizon: int) -> tuple[np.ndarray, np.ndarray]:
@@ -287,7 +260,7 @@ def run_backtest(df: pd.DataFrame | None = None, horizon: int = DEFAULT_HORIZON,
             "overall_rule": "macro average of the 15 per-series metrics, with a pooled per-observation micro variant also included below",
         },
         "model": {
-            "name": "HistGradientBoostingRegressor",
+            "name": MODEL_NAME,
             "features": FEATURES,
             "hyperparameters": MODEL_PARAMS,
         },

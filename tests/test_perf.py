@@ -23,3 +23,4 @@ def test_forecast_horizon_uses_one_cached_full_pass(monkeypatch):
     assert len(second) == 51
     assert call_count["count"] == 1
     assert float(first["yhat"].tolist()[-1]) == 27.0
+    model._FORECAST_CACHE.clear()

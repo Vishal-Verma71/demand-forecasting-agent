@@ -1,4 +1,4 @@
-﻿"""Data loading and real-data adaptation for the Demand Forecasting Agent.
+"""Data loading and real-data adaptation for the Demand Forecasting Agent.
 
 The application is built around a store/department daily-sales table.  When the
 official M5 files in ``data/raw/m5`` are present they become the primary source.
@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 from datetime import date, timedelta
 
-from .config import DATA_DIR, STORES, DEPARTMENTS, RANDOM_SEED
+from .config import DATA_DIR, STORES, DEPARTMENTS, RANDOM_SEED, INVENTORY_PROXY_DAYS
 
 DATA_PATH = DATA_DIR / "supply_chain_sales.csv"
 M5_RAW_DIR = DATA_DIR / "raw" / "m5"
@@ -27,6 +27,25 @@ SUPPLIERS = {
     "HOBBIES": [("ToyWorld", 7), ("CraftHub", 10)],
     "HOUSEHOLD": [("HomeEssentials", 5), ("CleanPro", 4)],
 }
+
+# Commercial terms used for supplier allocation.  M5 has no supplier data, so these
+# are documented business assumptions: relative unit cost (1.00 = list price) and
+# on-time delivery reliability.  Faster suppliers are deliberately more expensive.
+SUPPLIER_TERMS = {
+    "FreshCo": {"unit_cost": 1.08, "reliability": 0.97},
+    "GlobalFoods": {"unit_cost": 1.00, "reliability": 0.92},
+    "ToyWorld": {"unit_cost": 1.06, "reliability": 0.95},
+    "CraftHub": {"unit_cost": 0.94, "reliability": 0.88},
+    "HomeEssentials": {"unit_cost": 0.97, "reliability": 0.93},
+    "CleanPro": {"unit_cost": 1.04, "reliability": 0.96},
+}
+
+# Inventory ledger simulation (see simulate_inventory).  The simulated stores run the
+# "traditional static" policy the agent is meant to improve on: a weekly min/max
+# order sized from the trailing 28-day average, with no forecast, no promotion
+# awareness and no statistical safety stock.
+REVIEW_PERIOD_DAYS = 7
+FUTURE_CALENDAR_PATH = DATA_DIR / "m5_calendar_future.csv"
 
 HOLIDAYS = {
     (11, 24), (11, 25), (11, 26), (12, 24), (12, 25), (12, 26),
@@ -83,10 +102,36 @@ def m5_files_available(raw_dir: str | Path = M5_RAW_DIR) -> bool:
     return all((raw / f).is_file() for f in M5_REQUIRED_FILES)
 
 
-def _supplier_for(store: str, dept: str):
+def select_supplier(store: str, dept: str):
+    '''Choose the configured supplier with the shortest supplier lead time.
+
+    M5 does not contain supplier or lead-time data.  Supplier choices are therefore
+    documented business assumptions.  When more fields are available, the tie-break
+    is documented and configurable, but only lead time is currently real.  Store is
+    retained in the signature because a future, richer supplier table would use it.
+    '''
     choices = SUPPLIERS.get(dept.upper(), [("UnknownSupplier", 7)])
-    token = sum((i + 1) * ord(c) for i, c in enumerate(str(store)))
-    return choices[token % len(choices)]
+    return min(choices, key=lambda choice: (choice[1], choice[0]))
+
+
+def _supplier_for(store: str, dept: str):
+    return select_supplier(store, dept)
+
+
+def _write_future_calendar(calendar: pd.DataFrame, sales_days: set[str]) -> None:
+    """Persist the part of the M5 calendar after the last sales day (events + SNAP).
+
+    The raw M5 folder is not committed, so this small file keeps the promotional
+    schedule available to the forecaster and the agent in a fresh clone.
+    """
+    future = calendar[~calendar["d"].isin(sales_days)].copy()
+    if future.empty:
+        return
+    names = future[["event_name_1", "event_name_2"]].fillna("") if "event_name_1" in future.columns else None
+    future["Event"] = (names.apply(lambda r: " / ".join(v for v in r if v), axis=1)
+                       if names is not None else "")
+    cols = ["Date", "Holiday", "Event"] + [c for c in ("snap_CA", "snap_TX", "snap_WI") if c in future.columns]
+    future[cols].to_csv(FUTURE_CALENDAR_PATH, index=False, date_format="%Y-%m-%d")
 
 
 def load_m5_sales(raw_dir: str | Path = M5_RAW_DIR,
@@ -128,6 +173,7 @@ def load_m5_sales(raw_dir: str | Path = M5_RAW_DIR,
     day_columns = [c for c in header if c.startswith("d_")]
     if not day_columns:
         raise ValueError("M5 sales file contains no daily sales columns")
+    _write_future_calendar(calendar, set(day_columns))
 
     dtype_map = {c: "int16" for c in day_columns}
     sales = pd.read_csv(sales_path, dtype=dtype_map)
@@ -175,7 +221,7 @@ def load_m5_sales(raw_dir: str | Path = M5_RAW_DIR,
         "Dept": long["dept_core"].astype(str),
         "Date": pd.to_datetime(long["Date"], errors="coerce"),
         "Sales": long["Sales"].astype(float).clip(lower=0),
-        "OnHand": (long["Sales"].astype(float).clip(lower=0) * 14.0).clip(lower=0),
+        "OnHand": (long["Sales"].astype(float).clip(lower=0) * INVENTORY_PROXY_DAYS).clip(lower=0),
         "Promo": long["Promo"].astype(int),
         "Holiday": long["Holiday"].astype(int),
     })
@@ -197,13 +243,101 @@ def load_m5_sales(raw_dir: str | Path = M5_RAW_DIR,
     return out.sort_values(["Store", "Dept", "Date"]).reset_index(drop=True)
 
 
+def simulate_inventory(sales: np.ndarray, lead_time: int, buffer_days: float,
+                       phase: int, review_days: int = REVIEW_PERIOD_DAYS,
+                       reliability: float = 1.0, seed: int = RANDOM_SEED) -> tuple[np.ndarray, np.ndarray]:
+    """Replay a periodic-review, order-up-to replenishment policy over actual sales.
+
+    M5 has no stock data.  Instead of a constant "N days of sales" proxy, we run the
+    policy a typical store would use: every ``review_days`` it orders up to
+    (review + lead + buffer) days of trailing-average demand, and the order arrives
+    ``lead_time`` days later.  With probability ``1 - reliability`` a delivery is a
+    short shipment (40-90% of the order), as happens with real suppliers.  Sales
+    that exceed stock are lost.  Returns end-of-day on-hand units and units on
+    order (placed but not yet received).
+    """
+    rng = np.random.default_rng(seed)
+    n = len(sales)
+    on_hand = np.zeros(n)
+    on_order = np.zeros(n)
+    cover_days = review_days + lead_time + buffer_days
+    stock = float(np.mean(sales[:28])) * cover_days if n else 0.0
+    pipeline: dict[int, float] = {}
+    for t in range(n):
+        arriving = pipeline.pop(t, 0.0)
+        if arriving and rng.random() > reliability:
+            arriving *= rng.uniform(0.4, 0.9)
+        stock += arriving
+        stock = max(stock - float(sales[t]), 0.0)
+        if (t + phase) % review_days == 0:
+            avg = float(np.mean(sales[max(0, t - 27):t + 1]))
+            position = stock + sum(pipeline.values())
+            qty = max(0.0, avg * cover_days - position)
+            if qty > 0:
+                pipeline[t + lead_time] = pipeline.get(t + lead_time, 0.0) + qty
+        on_hand[t] = stock
+        on_order[t] = sum(pipeline.values())
+    return on_hand, on_order
+
+
+def add_inventory_simulation(df: pd.DataFrame) -> pd.DataFrame:
+    """Attach simulated OnHand/OnOrder columns to every store/department series."""
+    out = df.sort_values(["Store", "Dept", "Date"]).reset_index(drop=True).copy()
+    out["OnHand"] = 0.0
+    out["OnOrder"] = 0.0
+    out["DaysToReview"] = 0
+    for (store, dept), idx in out.groupby(["Store", "Dept"]).groups.items():
+        key = sum(ord(c) for c in f"{store}{dept}")
+        lead = int(out.loc[idx[0], "LeadTime"])
+        supplier = str(out.loc[idx[0], "Supplier"])
+        buffer_days = 0.0                         # static policy: no safety buffer
+        phase = key % REVIEW_PERIOD_DAYS          # stores review on different weekdays
+        reliability = SUPPLIER_TERMS.get(supplier, {}).get("reliability", 0.9)
+        on_hand, on_order = simulate_inventory(out.loc[idx, "Sales"].to_numpy(dtype=float),
+                                               lead, buffer_days, phase,
+                                               reliability=reliability, seed=RANDOM_SEED + key)
+        out.loc[idx, "OnHand"] = np.round(on_hand, 1)
+        out.loc[idx, "OnOrder"] = np.round(on_order, 1)
+        # Days from each date until the store's next weekly review (1..7).
+        t = np.arange(len(idx))
+        out.loc[idx, "DaysToReview"] = REVIEW_PERIOD_DAYS - (t + phase) % REVIEW_PERIOD_DAYS
+    return out
+
+
+def future_calendar(store: str, start, periods: int) -> pd.DataFrame:
+    """Known-in-advance calendar (M5 events + SNAP days) for forecast dates.
+
+    M5's calendar.csv runs 56 days past the last sales day, so promotions and
+    events are genuinely known for the whole forecast horizon.  Falls back to a
+    fixed holiday list when the calendar file is unavailable.
+    """
+    dates = pd.date_range(pd.Timestamp(start), periods=periods, freq="D")
+    out = pd.DataFrame({"Date": dates, "Promo": 0, "Holiday": 0, "Event": ""})
+    out["Holiday"] = [int((d.month, d.day) in HOLIDAYS) for d in dates]
+    if FUTURE_CALENDAR_PATH.exists():
+        cal = pd.read_csv(FUTURE_CALENDAR_PATH, parse_dates=["Date"])
+        snap_col = f"snap_{store[:2].upper()}"
+        cal = cal.set_index("Date")
+        known = out["Date"].isin(cal.index)
+        rows = cal.reindex(out.loc[known, "Date"])
+        out.loc[known, "Holiday"] = rows["Holiday"].fillna(0).astype(int).to_numpy()
+        out.loc[known, "Event"] = rows["Event"].fillna("").astype(str).to_numpy()
+        if snap_col in cal.columns:
+            out.loc[known, "Promo"] = rows[snap_col].fillna(0).astype(int).to_numpy()
+    return out
+
+
 def normalize_dataset(df: pd.DataFrame) -> pd.DataFrame:
     missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
     if missing:
         raise ValueError(f"Dataset is missing required columns: {missing}")
     out = df.copy()
     if "OnHand" not in out.columns:
-        out["OnHand"] = out["Sales"].astype(float) * 7.0
+        out["OnHand"] = out["Sales"].astype(float) * INVENTORY_PROXY_DAYS
+    if "OnOrder" not in out.columns:
+        out["OnOrder"] = 0.0
+    if "DaysToReview" not in out.columns:
+        out["DaysToReview"] = REVIEW_PERIOD_DAYS
     if "Supplier" not in out.columns:
         out["Supplier"] = "UnknownSupplier"
     if "LeadTime" not in out.columns:
@@ -216,6 +350,8 @@ def normalize_dataset(df: pd.DataFrame) -> pd.DataFrame:
     out = out.dropna(subset=["Store", "Dept", "Date", "Sales"]).copy()
     out["Sales"] = out["Sales"].astype(float).clip(lower=0)
     out["OnHand"] = out["OnHand"].astype(float).clip(lower=0)
+    out["OnOrder"] = out["OnOrder"].astype(float).clip(lower=0)
+    out["DaysToReview"] = out["DaysToReview"].astype(int).clip(1, REVIEW_PERIOD_DAYS)
     out["LeadTime"] = out["LeadTime"].astype(int).clip(lower=1)
     out["Supplier"] = out["Supplier"].astype(str)
     out["Promo"] = out["Promo"].astype(int)
@@ -239,20 +375,72 @@ def load_or_generate(path: Path = DATA_PATH, force: bool = False, raw_dir: str |
         if not force_from_m5:
             df = pd.read_csv(path)
             if set(REQUIRED_COLUMNS).issubset(df.columns):
+                needs_ledger = "DaysToReview" not in df.columns  # cache predates the inventory simulation
                 df = normalize_dataset(df)
                 if not df.empty:
+                    if needs_ledger:
+                        df = add_inventory_simulation(df)
+                        df.to_csv(path, index=False, date_format="%Y-%m-%d")
                     return df
         force = True
 
     if m5_files_available(raw):
-        df = normalize_dataset(load_m5_sales(raw))
+        df = load_m5_sales(raw)
     else:
         # Explicit fallback, used only when the real M5 files are unavailable.
-        df = normalize_dataset(generate_dataset())
+        df = generate_dataset()
+    df = add_inventory_simulation(normalize_dataset(df))
 
     path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(path, index=False, date_format="%Y-%m-%d")
     return df
+
+
+def data_diagnostics(raw_dir: str | Path = M5_RAW_DIR,
+                    stores: list[str] | None = None,
+                    departments: list[str] | None = None) -> dict:
+    '''Return read-only counts that distinguish source data from selected app output.'''
+    raw = Path(raw_dir)
+    stores = stores or STORES
+    departments = departments or DEPARTMENTS
+    raw_item_rows_by_store = {}
+    raw_selected_item_rows_by_store = {}
+    raw_selected_item_rows_by_department = {dept: 0 for dept in departments}
+    if (raw / "sales_train_validation.csv").is_file():
+        import csv
+        with open(raw / "sales_train_validation.csv", newline="", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle)
+            for row in reader:
+                store = row.get("store_id", "")
+                dept = row.get("dept_id", "").split("_")[0]
+                raw_item_rows_by_store[store] = raw_item_rows_by_store.get(store, 0) + 1
+                if store in stores:
+                    raw_selected_item_rows_by_store[store] = raw_selected_item_rows_by_store.get(store, 0) + 1
+                    if dept in raw_selected_item_rows_by_department:
+                        raw_selected_item_rows_by_department[dept] += 1
+
+    cached = load_or_generate()
+    cached_by_store = cached.groupby("Store").size().astype(int).to_dict()
+    cached_by_store_department = {
+        f"{store}/{dept}": int(len(cached[(cached.Store == store) & (cached.Dept == dept)]))
+        for store in stores for dept in departments
+    }
+
+    return {
+        "source": "Kaggle M5 aggregated daily store/department demand",
+        "m5_source_item_rows_by_store": raw_item_rows_by_store,
+        "m5_selected_item_rows_by_store": raw_selected_item_rows_by_store,
+        "m5_selected_item_rows_by_department": raw_selected_item_rows_by_department,
+        "m5_daily_columns": 1913 if m5_files_available(raw) else 0,
+        "cached_data_rows": int(len(cached)),
+        "cached_rows_by_store": cached_by_store,
+        "cached_rows_by_store_department": cached_by_store_department,
+        "inventory_assumption": {
+            "OnHand": f"estimated at {INVENTORY_PROXY_DAYS} days of recent demand",
+            "Supplier": "deterministic existing supplier configuration, not a Kaggle field",
+            "LeadTime": "existing business assumption, not a Kaggle field",
+        },
+    }
 
 
 def list_series(df: pd.DataFrame):

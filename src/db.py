@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS inventory (
     dept TEXT NOT NULL,
     sku TEXT,
     on_hand REAL NOT NULL,
+    on_order REAL DEFAULT 0,
+    days_to_review INTEGER DEFAULT 7,
     safety_stock REAL,
     lead_time_days INTEGER,
     supplier TEXT,
@@ -28,20 +30,44 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     store TEXT, dept TEXT, supplier TEXT,
     qty REAL, lead_time_days INTEGER, status TEXT DEFAULT 'DRAFT',
+    unit_cost REAL, reason TEXT,
+    recommendation_key TEXT UNIQUE,
     created_at TEXT DEFAULT (datetime('now'))
 );
 """
 
 
-def init_db(path: Path = DB_PATH) -> None:
+PO_STATUSES = ("DRAFT", "APPROVED", "REJECTED")
+
+
+def _db_path(path: Path | None) -> Path:
+    # Resolved at call time so tests can point the module at a temporary database.
+    return Path(path) if path is not None else DB_PATH
+
+
+def _add_missing_columns(c, table: str, columns: dict[str, str]) -> None:
+    existing = {row[1] for row in c.execute(f"PRAGMA table_info({table})").fetchall()}
+    for name, decl in columns.items():
+        if name not in existing:
+            c.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+
+
+def init_db(path: Path | None = None) -> None:
+    path = _db_path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path) as c:
         c.executescript(SCHEMA)
+        _add_missing_columns(c, "purchase_orders",
+                             {"recommendation_key": "TEXT", "unit_cost": "REAL", "reason": "TEXT"})
+        _add_missing_columns(c, "inventory", {"on_order": "REAL DEFAULT 0", "days_to_review": "INTEGER DEFAULT 7"})
+        c.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_purchase_orders_recommendation_key "
+                  "ON purchase_orders(recommendation_key) WHERE recommendation_key IS NOT NULL")
         c.commit()
 
 
 @contextmanager
-def conn(path: Path = DB_PATH):
+def conn(path: Path | None = None):
+    path = _db_path(path)
     init_db(path)
     c = sqlite3.connect(path)
     c.row_factory = sqlite3.Row
@@ -55,10 +81,10 @@ def conn(path: Path = DB_PATH):
 def upsert_inventory(rows):
     with conn() as c:
         c.executemany(
-            """INSERT INTO inventory(store,dept,sku,on_hand,safety_stock,lead_time_days,supplier)
-               VALUES(:store,:dept,:sku,:on_hand,:safety_stock,:lead_time_days,:supplier)
+            """INSERT INTO inventory(store,dept,sku,on_hand,on_order,days_to_review,safety_stock,lead_time_days,supplier)
+               VALUES(:store,:dept,:sku,:on_hand,:on_order,:days_to_review,:safety_stock,:lead_time_days,:supplier)
                ON CONFLICT(store,dept) DO UPDATE SET
-                 on_hand=excluded.on_hand, safety_stock=excluded.safety_stock,
+                 on_hand=excluded.on_hand, on_order=excluded.on_order, days_to_review=excluded.days_to_review, safety_stock=excluded.safety_stock,
                  lead_time_days=excluded.lead_time_days, supplier=excluded.supplier,
                  updated_at=datetime('now')""",
             rows,
@@ -77,9 +103,15 @@ def get_inventory(store=None, dept=None):
 
 
 def add_alert(store, dept, level, message):
+    """Insert an alert unless the latest alert for this series is identical (no scan spam)."""
     with conn() as c:
+        last = c.execute("SELECT level, message FROM alerts WHERE store=? AND dept=? ORDER BY id DESC LIMIT 1",
+                         (store, dept)).fetchone()
+        if last is not None and last["level"] == level and last["message"] == message:
+            return False
         c.execute("INSERT INTO alerts(store,dept,level,message) VALUES(?,?,?,?)",
                   (store, dept, level, message))
+        return True
 
 
 def get_alerts(limit=50):
@@ -88,12 +120,41 @@ def get_alerts(limit=50):
             "SELECT * FROM alerts ORDER BY id DESC LIMIT ?", (limit,)).fetchall()]
 
 
-def add_po(store, dept, supplier, qty, lead_time_days):
+def add_po(store, dept, supplier, qty, lead_time_days, recommendation_key=None,
+           unit_cost=None, reason=None):
     with conn() as c:
         cur = c.execute(
-            "INSERT INTO purchase_orders(store,dept,supplier,qty,lead_time_days) VALUES(?,?,?,?,?)",
-            (store, dept, supplier, qty, lead_time_days))
+            """INSERT INTO purchase_orders(store,dept,supplier,qty,lead_time_days,recommendation_key,unit_cost,reason)
+               VALUES(?,?,?,?,?,?,?,?)""",
+            (store, dept, supplier, qty, lead_time_days, recommendation_key, unit_cost, reason))
         return cur.lastrowid
+
+
+def set_po_status(po_id: int, status: str):
+    """Human-in-the-loop decision on an agent-drafted PO. Only DRAFT orders can change."""
+    if status not in PO_STATUSES[1:]:
+        raise ValueError(f"status must be one of {PO_STATUSES[1:]}")
+    with conn() as c:
+        row = c.execute("SELECT * FROM purchase_orders WHERE id=?", (po_id,)).fetchone()
+        if row is None:
+            raise KeyError(f"PO {po_id} not found")
+        if row["status"] != "DRAFT":
+            raise ValueError(f"PO {po_id} is already {row['status']}")
+        c.execute("UPDATE purchase_orders SET status=? WHERE id=?", (status, po_id))
+        if status == "APPROVED":
+            # An approved order is now inbound stock, so the next risk check counts it.
+            c.execute("UPDATE inventory SET on_order = COALESCE(on_order, 0) + ? WHERE store=? AND dept=?",
+                      (row["qty"], row["store"], row["dept"]))
+        return {**dict(row), "status": status}
+
+
+def get_po_by_key(recommendation_key: str):
+    if not recommendation_key:
+        return None
+    with conn() as c:
+        row = c.execute("SELECT * FROM purchase_orders WHERE recommendation_key=? ORDER BY id DESC LIMIT 1",
+                        (recommendation_key,)).fetchone()
+        return dict(row) if row else None
 
 
 def get_pos(limit=50):

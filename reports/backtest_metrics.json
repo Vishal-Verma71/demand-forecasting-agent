@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-10-15T15:03:01",
+  "created_at": "2026-10-16T00:23:46",
   "dataset": "Kaggle M5 Forecasting - Accuracy",
   "source_files": [
     "data/raw/m5/sales_train_validation.csv",
@@ -18,33 +18,33 @@
     "HOBBIES",
     "HOUSEHOLD"
   ],
-  "forecast_horizon": 51,
+  "forecast_horizon": 28,
   "windows": 3,
   "primary_window": 1,
   "primary_test_period": {
-    "from": "2016-03-05",
+    "from": "2016-03-28",
     "to": "2016-04-24",
-    "observations": 51
+    "observations": 28
   },
-  "primary_test_observations": 765,
+  "primary_test_observations": 420,
   "primary_overall_macro": {
     "naive": {
-      "MAE": 254.7595,
-      "RMSE": 332.6695,
-      "WAPE": 19.8651,
-      "MAPE_nonzero": 18.8283
+      "MAE": 405.3214,
+      "RMSE": 463.4184,
+      "WAPE": 27.8987,
+      "MAPE_nonzero": 29.5072
     },
     "seasonal_naive": {
-      "MAE": 148.7739,
-      "RMSE": 204.6702,
-      "WAPE": 12.8243,
-      "MAPE_nonzero": 13.8507
+      "MAE": 170.7309,
+      "RMSE": 216.3764,
+      "WAPE": 14.3379,
+      "MAPE_nonzero": 13.979
     },
     "model": {
-      "MAE": 122.1506,
-      "RMSE": 173.6466,
-      "WAPE": 10.0391,
-      "MAPE_nonzero": 10.5031
+      "MAE": 103.3843,
+      "RMSE": 129.5286,
+      "WAPE": 9.0217,
+      "MAPE_nonzero": 8.9934
     }
   },
   "rolling_test_periods": [
@@ -52,108 +52,111 @@
       "window": 1,
       "train": {
         "from": "2011-01-29",
-        "to": "2016-03-04",
-        "observations": 27930,
+        "to": "2016-03-27",
+        "observations": 28275,
         "validation": {
+          "validation": "one-step-ahead on the last 28 training days, model fit without them",
           "validation_observations": 420,
-          "validation_MAE": 85.5589,
-          "validation_RMSE": 126.6752
+          "validation_MAE": 123.0232,
+          "validation_RMSE": 228.3242
         }
       },
       "test": {
-        "from": "2016-03-05",
+        "from": "2016-03-28",
         "to": "2016-04-24",
-        "observations": 51
+        "observations": 28
       },
       "naive": {
-        "MAE": 254.7595,
-        "RMSE": 332.6695,
-        "WAPE": 19.8651,
-        "MAPE_nonzero": 18.8283
+        "MAE": 405.3214,
+        "RMSE": 463.4184,
+        "WAPE": 27.8987,
+        "MAPE_nonzero": 29.5072
       },
       "seasonal_naive": {
-        "MAE": 148.7739,
-        "RMSE": 204.6702,
-        "WAPE": 12.8243,
-        "MAPE_nonzero": 13.8507
+        "MAE": 170.7309,
+        "RMSE": 216.3764,
+        "WAPE": 14.3379,
+        "MAPE_nonzero": 13.979
       },
       "model": {
-        "MAE": 122.1506,
-        "RMSE": 173.6466,
-        "WAPE": 10.0391,
-        "MAPE_nonzero": 10.5031
+        "MAE": 103.3843,
+        "RMSE": 129.5286,
+        "WAPE": 9.0217,
+        "MAPE_nonzero": 8.9934
       }
     },
     {
       "window": 2,
       "train": {
         "from": "2011-01-29",
-        "to": "2016-01-13",
-        "observations": 27165,
+        "to": "2016-02-28",
+        "observations": 27855,
         "validation": {
+          "validation": "one-step-ahead on the last 28 training days, model fit without them",
           "validation_observations": 420,
-          "validation_MAE": 126.9996,
-          "validation_RMSE": 229.4994
+          "validation_MAE": 92.4027,
+          "validation_RMSE": 139.5181
         }
       },
       "test": {
-        "from": "2016-01-14",
-        "to": "2016-03-04",
-        "observations": 51
+        "from": "2016-02-29",
+        "to": "2016-03-27",
+        "observations": 28
       },
       "naive": {
-        "MAE": 324.383,
-        "RMSE": 412.3391,
-        "WAPE": 27.2481,
-        "MAPE_nonzero": 24.5301
+        "MAE": 461.1929,
+        "RMSE": 515.5659,
+        "WAPE": 36.5214,
+        "MAPE_nonzero": 42.3936
       },
       "seasonal_naive": {
-        "MAE": 141.1634,
-        "RMSE": 176.7384,
-        "WAPE": 13.0464,
-        "MAPE_nonzero": 13.2854
+        "MAE": 150.7881,
+        "RMSE": 217.4616,
+        "WAPE": 12.7568,
+        "MAPE_nonzero": 13.6659
       },
       "model": {
-        "MAE": 112.305,
-        "RMSE": 143.6045,
-        "WAPE": 9.8614,
-        "MAPE_nonzero": 10.0708
+        "MAE": 129.5617,
+        "RMSE": 185.2959,
+        "WAPE": 10.8432,
+        "MAPE_nonzero": 11.6612
       }
     },
     {
       "window": 3,
       "train": {
         "from": "2011-01-29",
-        "to": "2015-11-23",
-        "observations": 26400,
+        "to": "2016-01-31",
+        "observations": 27435,
         "validation": {
+          "validation": "one-step-ahead on the last 28 training days, model fit without them",
           "validation_observations": 420,
-          "validation_MAE": 99.8315,
-          "validation_RMSE": 141.9287
+          "validation_MAE": 93.1595,
+          "validation_RMSE": 135.1174
         }
       },
       "test": {
-        "from": "2015-11-24",
-        "to": "2016-01-13",
-        "observations": 51
+        "from": "2016-02-01",
+        "to": "2016-02-28",
+        "observations": 28
       },
       "naive": {
-        "MAE": 234.7307,
-        "RMSE": 322.5491,
-        "WAPE": 21.5045,
-        "MAPE_nonzero": 760.7254
+        "MAE": 424.3524,
+        "RMSE": 475.0344,
+        "WAPE": 32.9027,
+        "MAPE_nonzero": 37.7594
       },
       "seasonal_naive": {
-        "MAE": 207.0013,
-        "RMSE": 292.8267,
-        "WAPE": 18.6405,
-        "MAPE_nonzero": 932.4912
+        "MAE": 168.5429,
+        "RMSE": 207.318,
+        "WAPE": 12.9693,
+        "MAPE_nonzero": 13.2057
       },
       "model": {
-        "MAE": 172.8745,
-        "RMSE": 254.0778,
-        "WAPE": 15.2727,
-        "MAPE_nonzero": 808.4606
+        "MAE": 95.5659,
+        "RMSE": 124.7904,
+        "WAPE": 8.5664,
+        "MAPE_nonzero": 8.9963
       }
     }
   ],
@@ -166,13 +169,14 @@
     "overall_rule": "macro average of the 15 per-series metrics, with a pooled per-observation micro variant also included below"
   },
   "model": {
-    "name": "HistGradientBoostingRegressor",
+    "name": "LightGBM (LGBMRegressor, global model)",
     "features": [
       "store",
       "dept",
       "dow",
       "month",
       "promo",
+      "holiday",
       "lag_1",
       "lag_7",
       "lag_28",
@@ -180,494 +184,499 @@
       "roll_28"
     ],
     "hyperparameters": {
-      "max_iter": 300,
-      "learning_rate": 0.06,
-      "max_leaf_nodes": 31,
-      "l2_regularization": 1.0,
-      "random_state": 42
+      "n_estimators": 400,
+      "learning_rate": 0.05,
+      "num_leaves": 31,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "subsample_freq": 1,
+      "colsample_bytree": 0.9,
+      "reg_lambda": 1.0,
+      "random_state": 42,
+      "verbose": -1
     }
   },
   "per_series_primary": [
     {
       "series": "CA_1/FOODS",
-      "train_observations": 1862,
+      "train_observations": 1885,
       "naive": {
-        "MAE": 534.8627,
-        "RMSE": 684.5679,
-        "WAPE": 17.5377,
-        "MAPE_nonzero": 16.3163,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 664.6429,
+        "RMSE": 722.8595,
+        "WAPE": 21.98,
+        "MAPE_nonzero": 24.0019,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "seasonal_naive": {
-        "MAE": 240.2941,
-        "RMSE": 311.2256,
-        "WAPE": 7.8791,
-        "MAPE_nonzero": 7.6311,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 343.8571,
+        "RMSE": 420.1161,
+        "WAPE": 11.3715,
+        "MAPE_nonzero": 10.8635,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "model": {
-        "MAE": 190.5128,
-        "RMSE": 239.2623,
-        "WAPE": 6.2468,
-        "MAPE_nonzero": 6.3865,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 153.0019,
+        "RMSE": 200.8526,
+        "WAPE": 5.0598,
+        "MAPE_nonzero": 5.3911,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       }
     },
     {
       "series": "CA_1/HOBBIES",
-      "train_observations": 1862,
+      "train_observations": 1885,
       "naive": {
-        "MAE": 107.5294,
-        "RMSE": 144.0487,
-        "WAPE": 20.4269,
-        "MAPE_nonzero": 18.2115,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 169.0357,
+        "RMSE": 204.7276,
+        "WAPE": 31.4422,
+        "MAPE_nonzero": 28.292,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "seasonal_naive": {
-        "MAE": 91.0,
-        "RMSE": 118.4942,
-        "WAPE": 17.2868,
-        "MAPE_nonzero": 18.1036,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 102.25,
+        "RMSE": 146.6528,
+        "WAPE": 19.0195,
+        "MAPE_nonzero": 17.4068,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "model": {
-        "MAE": 66.7878,
-        "RMSE": 87.3308,
-        "WAPE": 12.6874,
-        "MAPE_nonzero": 13.0551,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 79.5259,
+        "RMSE": 98.1238,
+        "WAPE": 14.7926,
+        "MAPE_nonzero": 14.364,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       }
     },
     {
       "series": "CA_1/HOUSEHOLD",
-      "train_observations": 1862,
+      "train_observations": 1885,
       "naive": {
-        "MAE": 202.7255,
-        "RMSE": 278.6266,
-        "WAPE": 20.0749,
-        "MAPE_nonzero": 17.5473,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 195.6429,
+        "RMSE": 249.8294,
+        "WAPE": 19.4021,
+        "MAPE_nonzero": 17.8433,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "seasonal_naive": {
-        "MAE": 84.8824,
-        "RMSE": 120.7141,
-        "WAPE": 8.4055,
-        "MAPE_nonzero": 8.5876,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 124.0,
+        "RMSE": 184.6282,
+        "WAPE": 12.2972,
+        "MAPE_nonzero": 10.9885,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "model": {
-        "MAE": 74.0929,
-        "RMSE": 105.38,
-        "WAPE": 7.3371,
-        "MAPE_nonzero": 7.0875,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 66.4164,
+        "RMSE": 81.0123,
+        "WAPE": 6.5866,
+        "MAPE_nonzero": 6.3734,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       }
     },
     {
       "series": "CA_2/FOODS",
-      "train_observations": 1862,
+      "train_observations": 1885,
       "naive": {
-        "MAE": 571.2157,
-        "RMSE": 798.9868,
-        "WAPE": 19.9229,
-        "MAPE_nonzero": 18.0643,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 1187.5,
+        "RMSE": 1352.9155,
+        "WAPE": 40.6827,
+        "MAPE_nonzero": 47.1055,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "seasonal_naive": {
-        "MAE": 281.6078,
-        "RMSE": 515.7539,
-        "WAPE": 9.8219,
-        "MAPE_nonzero": 12.2672,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 260.4286,
+        "RMSE": 348.5701,
+        "WAPE": 8.9221,
+        "MAPE_nonzero": 8.7163,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "model": {
-        "MAE": 268.3416,
-        "RMSE": 472.1735,
-        "WAPE": 9.3592,
-        "MAPE_nonzero": 11.5723,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 149.4866,
+        "RMSE": 184.5702,
+        "WAPE": 5.1213,
+        "MAPE_nonzero": 5.0466,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       }
     },
     {
       "series": "CA_2/HOBBIES",
-      "train_observations": 1862,
+      "train_observations": 1885,
       "naive": {
-        "MAE": 101.8431,
-        "RMSE": 114.8539,
-        "WAPE": 25.0072,
-        "MAPE_nonzero": 29.2445,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 104.3214,
+        "RMSE": 127.5277,
+        "WAPE": 25.0794,
+        "MAPE_nonzero": 30.9624,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "seasonal_naive": {
-        "MAE": 69.451,
-        "RMSE": 89.1381,
-        "WAPE": 17.0534,
-        "MAPE_nonzero": 18.6795,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 60.0357,
+        "RMSE": 76.02,
+        "WAPE": 14.4329,
+        "MAPE_nonzero": 15.0109,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "model": {
-        "MAE": 54.2833,
-        "RMSE": 77.3107,
-        "WAPE": 13.3291,
-        "MAPE_nonzero": 14.8478,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 47.0828,
+        "RMSE": 56.0287,
+        "WAPE": 11.3189,
+        "MAPE_nonzero": 11.9988,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       }
     },
     {
       "series": "CA_2/HOUSEHOLD",
-      "train_observations": 1862,
+      "train_observations": 1885,
       "naive": {
-        "MAE": 269.7647,
-        "RMSE": 405.4424,
-        "WAPE": 24.838,
-        "MAPE_nonzero": 19.8737,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 585.2143,
+        "RMSE": 659.65,
+        "WAPE": 51.766,
+        "MAPE_nonzero": 62.5887,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "seasonal_naive": {
-        "MAE": 141.8824,
-        "RMSE": 223.6238,
-        "WAPE": 13.0635,
-        "MAPE_nonzero": 15.6586,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 88.8571,
+        "RMSE": 107.5208,
+        "WAPE": 7.86,
+        "MAPE_nonzero": 7.7314,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "model": {
-        "MAE": 117.5884,
-        "RMSE": 197.7418,
-        "WAPE": 10.8267,
-        "MAPE_nonzero": 12.1602,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 97.0405,
+        "RMSE": 122.082,
+        "WAPE": 8.5839,
+        "MAPE_nonzero": 7.9503,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       }
     },
     {
       "series": "TX_1/FOODS",
-      "train_observations": 1862,
+      "train_observations": 1885,
       "naive": {
-        "MAE": 326.1176,
-        "RMSE": 428.9447,
-        "WAPE": 15.4803,
-        "MAPE_nonzero": 14.1067,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 989.3571,
+        "RMSE": 1040.7954,
+        "WAPE": 47.1652,
+        "MAPE_nonzero": 50.662,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "seasonal_naive": {
-        "MAE": 271.6275,
-        "RMSE": 327.3725,
-        "WAPE": 12.8937,
-        "MAPE_nonzero": 12.4226,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 263.8571,
+        "RMSE": 307.4302,
+        "WAPE": 12.5787,
+        "MAPE_nonzero": 12.2036,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "model": {
-        "MAE": 161.3287,
-        "RMSE": 223.6553,
-        "WAPE": 7.658,
-        "MAPE_nonzero": 7.3088,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 124.5469,
+        "RMSE": 158.4554,
+        "WAPE": 5.9375,
+        "MAPE_nonzero": 5.9816,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       }
     },
     {
       "series": "TX_1/HOBBIES",
-      "train_observations": 1862,
+      "train_observations": 1885,
       "naive": {
-        "MAE": 48.3333,
-        "RMSE": 66.0007,
-        "WAPE": 17.2077,
-        "MAPE_nonzero": 16.7142,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 72.1786,
+        "RMSE": 81.8564,
+        "WAPE": 25.1274,
+        "MAPE_nonzero": 27.1484,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "seasonal_naive": {
-        "MAE": 44.1569,
-        "RMSE": 62.8936,
-        "WAPE": 15.7208,
-        "MAPE_nonzero": 15.6402,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 48.5357,
+        "RMSE": 60.2557,
+        "WAPE": 16.8967,
+        "MAPE_nonzero": 16.1314,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "model": {
-        "MAE": 36.4641,
-        "RMSE": 47.3702,
-        "WAPE": 12.982,
-        "MAPE_nonzero": 13.4359,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 38.2772,
+        "RMSE": 51.8673,
+        "WAPE": 13.3254,
+        "MAPE_nonzero": 12.4363,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       }
     },
     {
       "series": "TX_1/HOUSEHOLD",
-      "train_observations": 1862,
+      "train_observations": 1885,
       "naive": {
-        "MAE": 138.7255,
-        "RMSE": 184.616,
-        "WAPE": 14.4538,
-        "MAPE_nonzero": 13.3855,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 248.6786,
+        "RMSE": 286.3852,
+        "WAPE": 26.7818,
+        "MAPE_nonzero": 30.0209,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "seasonal_naive": {
-        "MAE": 78.9216,
-        "RMSE": 96.1381,
-        "WAPE": 8.2228,
-        "MAPE_nonzero": 8.6699,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 68.6786,
+        "RMSE": 88.9115,
+        "WAPE": 7.3964,
+        "MAPE_nonzero": 7.9611,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "model": {
-        "MAE": 70.1317,
-        "RMSE": 86.1394,
-        "WAPE": 7.307,
-        "MAPE_nonzero": 7.4236,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 70.0404,
+        "RMSE": 84.851,
+        "WAPE": 7.5431,
+        "MAPE_nonzero": 7.9937,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       }
     },
     {
       "series": "TX_2/FOODS",
-      "train_observations": 1862,
+      "train_observations": 1885,
       "naive": {
-        "MAE": 415.0,
-        "RMSE": 550.066,
-        "WAPE": 15.5008,
-        "MAPE_nonzero": 14.1003,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 882.5,
+        "RMSE": 969.86,
+        "WAPE": 34.393,
+        "MAPE_nonzero": 37.6226,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "seasonal_naive": {
-        "MAE": 255.3725,
-        "RMSE": 318.1343,
-        "WAPE": 9.5385,
-        "MAPE_nonzero": 9.5062,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 298.9286,
+        "RMSE": 374.5008,
+        "WAPE": 11.6499,
+        "MAPE_nonzero": 11.9159,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "model": {
-        "MAE": 328.8027,
-        "RMSE": 407.8754,
-        "WAPE": 12.2812,
-        "MAPE_nonzero": 12.6563,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 331.8691,
+        "RMSE": 396.9043,
+        "WAPE": 12.9337,
+        "MAPE_nonzero": 13.3674,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       }
     },
     {
       "series": "TX_2/HOBBIES",
-      "train_observations": 1862,
+      "train_observations": 1885,
       "naive": {
-        "MAE": 64.0,
-        "RMSE": 80.4361,
-        "WAPE": 17.2125,
-        "MAPE_nonzero": 15.8341,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 62.5714,
+        "RMSE": 77.6043,
+        "WAPE": 16.4538,
+        "MAPE_nonzero": 15.3882,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "seasonal_naive": {
-        "MAE": 55.4118,
-        "RMSE": 72.7281,
-        "WAPE": 14.9027,
-        "MAPE_nonzero": 16.0657,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 66.8571,
+        "RMSE": 83.2827,
+        "WAPE": 17.5808,
+        "MAPE_nonzero": 17.5003,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "model": {
-        "MAE": 42.9808,
-        "RMSE": 53.3696,
-        "WAPE": 11.5595,
-        "MAPE_nonzero": 11.7716,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 41.1742,
+        "RMSE": 52.3943,
+        "WAPE": 10.8272,
+        "MAPE_nonzero": 10.7247,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       }
     },
     {
       "series": "TX_2/HOUSEHOLD",
-      "train_observations": 1862,
+      "train_observations": 1885,
       "naive": {
-        "MAE": 176.549,
-        "RMSE": 223.0985,
-        "WAPE": 17.3467,
-        "MAPE_nonzero": 15.9167,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 127.5714,
+        "RMSE": 165.2667,
+        "WAPE": 12.9364,
+        "MAPE_nonzero": 13.0466,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "seasonal_naive": {
-        "MAE": 127.4118,
-        "RMSE": 159.6198,
-        "WAPE": 12.5188,
-        "MAPE_nonzero": 13.2478,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 124.0714,
+        "RMSE": 142.1782,
+        "WAPE": 12.5815,
+        "MAPE_nonzero": 12.8661,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "model": {
-        "MAE": 80.1319,
-        "RMSE": 104.3188,
-        "WAPE": 7.8733,
-        "MAPE_nonzero": 8.6351,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 75.0443,
+        "RMSE": 85.0984,
+        "WAPE": 7.6099,
+        "MAPE_nonzero": 8.1609,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       }
     },
     {
       "series": "WI_1/FOODS",
-      "train_observations": 1862,
+      "train_observations": 1885,
       "naive": {
-        "MAE": 551.9804,
-        "RMSE": 661.9178,
-        "WAPE": 20.529,
-        "MAPE_nonzero": 20.0422,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 520.75,
+        "RMSE": 634.0513,
+        "WAPE": 19.7433,
+        "MAPE_nonzero": 19.3324,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "seasonal_naive": {
-        "MAE": 302.549,
-        "RMSE": 420.2012,
-        "WAPE": 11.2523,
-        "MAPE_nonzero": 11.8682,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 458.1786,
+        "RMSE": 594.2424,
+        "WAPE": 17.371,
+        "MAPE_nonzero": 15.9955,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "model": {
-        "MAE": 213.0074,
-        "RMSE": 334.6333,
-        "WAPE": 7.9221,
-        "MAPE_nonzero": 7.1108,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 163.3497,
+        "RMSE": 220.623,
+        "WAPE": 6.1931,
+        "MAPE_nonzero": 6.0764,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       }
     },
     {
       "series": "WI_1/HOBBIES",
-      "train_observations": 1862,
+      "train_observations": 1885,
       "naive": {
-        "MAE": 104.8039,
-        "RMSE": 141.8511,
-        "WAPE": 25.1731,
-        "MAPE_nonzero": 22.7879,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 97.1071,
+        "RMSE": 134.2552,
+        "WAPE": 23.2931,
+        "MAPE_nonzero": 19.7399,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "seasonal_naive": {
-        "MAE": 85.0784,
-        "RMSE": 104.8245,
-        "WAPE": 20.4352,
-        "MAPE_nonzero": 23.5614,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 113.5357,
+        "RMSE": 134.173,
+        "WAPE": 27.2338,
+        "MAPE_nonzero": 26.9641,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "model": {
-        "MAE": 59.2215,
-        "RMSE": 75.0229,
-        "WAPE": 14.2245,
-        "MAPE_nonzero": 14.4519,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 43.4675,
+        "RMSE": 57.2547,
+        "WAPE": 10.4265,
+        "MAPE_nonzero": 10.4823,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       }
     },
     {
       "series": "WI_1/HOUSEHOLD",
-      "train_observations": 1862,
+      "train_observations": 1885,
       "naive": {
-        "MAE": 207.9412,
-        "RMSE": 226.585,
-        "WAPE": 27.2657,
-        "MAPE_nonzero": 30.2787,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 172.75,
+        "RMSE": 243.6921,
+        "WAPE": 22.234,
+        "MAPE_nonzero": 18.8535,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "seasonal_naive": {
-        "MAE": 101.9608,
-        "RMSE": 129.1911,
-        "WAPE": 13.3693,
-        "MAPE_nonzero": 15.8512,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 138.8929,
+        "RMSE": 177.1631,
+        "WAPE": 17.8764,
+        "MAPE_nonzero": 17.4289,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       },
       "model": {
-        "MAE": 68.5839,
-        "RMSE": 93.1143,
-        "WAPE": 8.9929,
-        "MAPE_nonzero": 9.6434,
-        "observations": 51,
-        "nonzero_actual_observations": 51
+        "MAE": 70.4407,
+        "RMSE": 92.8116,
+        "WAPE": 9.0661,
+        "MAPE_nonzero": 8.554,
+        "observations": 28,
+        "nonzero_actual_observations": 28
       }
     }
   ],
   "rolling_summary": [
     {
       "naive": {
-        "MAE": 254.7595,
-        "RMSE": 332.6695,
-        "WAPE": 19.8651,
-        "MAPE_nonzero": 18.8283
+        "MAE": 405.3214,
+        "RMSE": 463.4184,
+        "WAPE": 27.8987,
+        "MAPE_nonzero": 29.5072
       },
       "seasonal_naive": {
-        "MAE": 148.7739,
-        "RMSE": 204.6702,
-        "WAPE": 12.8243,
-        "MAPE_nonzero": 13.8507
+        "MAE": 170.7309,
+        "RMSE": 216.3764,
+        "WAPE": 14.3379,
+        "MAPE_nonzero": 13.979
       },
       "model": {
-        "MAE": 122.1506,
-        "RMSE": 173.6466,
-        "WAPE": 10.0391,
-        "MAPE_nonzero": 10.5031
+        "MAE": 103.3843,
+        "RMSE": 129.5286,
+        "WAPE": 9.0217,
+        "MAPE_nonzero": 8.9934
       }
     },
     {
       "naive": {
-        "MAE": 324.383,
-        "RMSE": 412.3391,
-        "WAPE": 27.2481,
-        "MAPE_nonzero": 24.5301
+        "MAE": 461.1929,
+        "RMSE": 515.5659,
+        "WAPE": 36.5214,
+        "MAPE_nonzero": 42.3936
       },
       "seasonal_naive": {
-        "MAE": 141.1634,
-        "RMSE": 176.7384,
-        "WAPE": 13.0464,
-        "MAPE_nonzero": 13.2854
+        "MAE": 150.7881,
+        "RMSE": 217.4616,
+        "WAPE": 12.7568,
+        "MAPE_nonzero": 13.6659
       },
       "model": {
-        "MAE": 112.305,
-        "RMSE": 143.6045,
-        "WAPE": 9.8614,
-        "MAPE_nonzero": 10.0708
+        "MAE": 129.5617,
+        "RMSE": 185.2959,
+        "WAPE": 10.8432,
+        "MAPE_nonzero": 11.6612
       }
     },
     {
       "naive": {
-        "MAE": 234.7307,
-        "RMSE": 322.5491,
-        "WAPE": 21.5045,
-        "MAPE_nonzero": 760.7254
+        "MAE": 424.3524,
+        "RMSE": 475.0344,
+        "WAPE": 32.9027,
+        "MAPE_nonzero": 37.7594
       },
       "seasonal_naive": {
-        "MAE": 207.0013,
-        "RMSE": 292.8267,
-        "WAPE": 18.6405,
-        "MAPE_nonzero": 932.4912
+        "MAE": 168.5429,
+        "RMSE": 207.318,
+        "WAPE": 12.9693,
+        "MAPE_nonzero": 13.2057
       },
       "model": {
-        "MAE": 172.8745,
-        "RMSE": 254.0778,
-        "WAPE": 15.2727,
-        "MAPE_nonzero": 808.4606
+        "MAE": 95.5659,
+        "RMSE": 124.7904,
+        "WAPE": 8.5664,
+        "MAPE_nonzero": 8.9963
       }
     }
   ],

@@ -2,27 +2,18 @@
 pandas>=2.0
 numpy>=1.26
 scikit-learn>=1.3
-# prophet>=1.1        # optional: requires cmdstan toolchain on some platforms
-# lightgbm>=4.0      # optional: build issues on some Windows/Python combos
+# 4.7.0 crashes natively (access violation in set_label) with numpy 1.26 on Windows.
+lightgbm>=4.0,!=4.7.0
 joblib>=1.3
 
-# UI
-streamlit>=1.35
-plotly>=5.18
-
-# Agent / LLM (optional backends)
+# Agent / LLM (optional backends: Groq, OpenAI, Ollama via the OpenAI client)
 openai>=1.30
 python-dotenv>=1.0
 pytrends>=4.9
 
-# API backend (for Next.js frontend)
+# API backend (for the Next.js frontend)
 fastapi>=0.110
 uvicorn>=0.29
 
-# DB / utils
-sqlalchemy>=2.0
-requests>=2.31
-
 # Dev / tests
 pytest>=7.4
-ruff>=0.4

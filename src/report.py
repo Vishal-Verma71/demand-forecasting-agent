@@ -7,6 +7,7 @@ from . import inventory
 from .config import STORES, DEPARTMENTS
 from .db import get_alerts, get_pos
 from .eval import load_evaluation
+from .data import data_diagnostics
 
 
 def build_report() -> str:
@@ -19,32 +20,38 @@ def build_report() -> str:
     lines.append(f"Stores: {', '.join(STORES)} | Departments: {', '.join(DEPARTMENTS)}")
     lines.append("")
     lines.append("## 2. Inventory Risk Snapshot")
-    lines.append("| Store | Dept | On hand | Daily demand | Days of supply | Risk |")
-    lines.append("|---|---|---|---|---|---|")
+    lines.append("| Store | Dept | On hand | Inbound | Reorder point | Days of supply | Projected stockout | Risk |")
+    lines.append("|---|---|---:|---:|---:|---:|---|---|")
     for s in STORES:
         for d in DEPARTMENTS:
             st = inventory.stock_status(s, d)
-            lines.append(f"| {s} | {d} | {st['on_hand']} | {st['avg_daily_demand']} | {st['days_of_supply']} | {st['risk_level']} |")
+            lines.append(f"| {s} | {d} | {round(st['on_hand'])} | {round(st['on_order'])} | {round(st['reorder_point'])} | "
+                         f"{st['days_of_supply']} | {st['projected_stockout_date'] or '-'} | {st['risk_level']} |")
     lines.append("")
     lines.append("## 3. Reorder Recommendations")
-    lines.append("| Store | Dept | Qty | Supplier | Lead (d) | Risk |")
-    lines.append("|---|---|---|---|---|---|")
+    lines.append("| Store | Dept | Risk | Qty | Supplier split |")
+    lines.append("|---|---|---|---:|---|")
     for s in STORES:
         for d in DEPARTMENTS:
             r = inventory.reorder_recommendation(s, d)
-            lines.append(f"| {s} | {d} | {r['recommended_qty']} | {r['supplier']} | {r['lead_time_days']} | {r['risk_level']} |")
+            if r["recommended_qty"] <= 0:
+                continue
+            split = "; ".join(f"{a['qty']} × {a['supplier']} ({a['lead_time_days']}d)" for a in r["allocations"])
+            lines.append(f"| {s} | {d} | {r['risk_level']} | {r['recommended_qty']} | {split} |")
     lines.append("")
     lines.append("## 4. Recent Alerts")
     for a in get_alerts(20):
         lines.append(f"- [{a['level']}] {a['store']}/{a['dept']}: {a['message']}")
     lines.append("")
-    lines.append("## 5. Draft Purchase Orders")
+    lines.append("## 5. Purchase Orders (drafted by the agent, approved by a planner)")
     for p in get_pos(20):
         lines.append(f"- PO#{p['id']} {p['store']}/{p['dept']} — {p['qty']} units from {p['supplier']} (lead {p['lead_time_days']}d) [{p['status']}]")
     lines.append("")
     lines.append("## 6. Method")
-    lines.append("HistGradientBoostingRegressor (scikit-learn global model). Agent uses ReAct loop with 7 tools,")
-    lines.append("supports Groq/OpenAI/Ollama or a fully offline deterministic router. External trend via pytrends (fallback if unavailable).")
+    lines.append("LightGBM global model over all 15 series with lag, rolling, calendar, SNAP-promotion and event features,")
+    lines.append("forecast recursively. Risk = inventory position vs forecast demand until the next scheduled delivery plus")
+    lines.append("z·σ·√L safety stock. The agent calls 9 tools through an LLM (Groq/OpenAI/Ollama) or an offline planner;")
+    lines.append("external demand signal from Google Trends (pytrends), reported as unavailable when it cannot be reached.")
     evaluation = load_evaluation()
     if evaluation:
         lines.append("")
@@ -61,4 +68,17 @@ def build_report() -> str:
         lines.append(f"Model beats naive: **{primary['model']['MAE'] < primary['naive']['MAE']}**")
         lines.append(f"Model beats seasonal naive: **{primary['model']['MAE'] < primary['seasonal_naive']['MAE']}**")
         lines.append(f"Predictions file: {evaluation['files']['predictions']}")
+    diagnostics = data_diagnostics()
+    lines.append("")
+    lines.append("## 8. Data Source Diagnostics")
+    lines.append(f"Cached rows: {diagnostics['cached_data_rows']}")
+    lines.append("M5 selected store/department combinations:")
+    for item in sorted(diagnostics["m5_selected_item_rows_by_store"].items()):
+        lines.append(f"- {item[0]}: {item[1]} source items")
+    lines.append("Cached rows by store/department:")
+    for key, value in diagnostics["cached_rows_by_store_department"].items():
+        lines.append(f"- {key}: {value} rows")
+    lines.append("")
+    lines.append("M5 has no stock or supplier data: on-hand and inbound come from a simulated weekly min/max ledger replayed")
+    lines.append("over actual M5 sales, and supplier lead times, costs and reliability are documented assumptions.")
     return "\n".join(lines)

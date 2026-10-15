@@ -9,10 +9,12 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 MODEL_DIR = BASE_DIR / "models"
-DB_PATH = BASE_DIR / "data" / "supply_chain.db"
 
 os.environ.setdefault("LOKY_MAX_CPU_COUNT", "4")
 load_dotenv(BASE_DIR / ".env", override=False)
+
+# Runtime state (inventory snapshot, alerts, purchase orders). Override for tests or demos.
+DB_PATH = Path(os.getenv("SUPPLY_CHAIN_DB", str(BASE_DIR / "data" / "supply_chain.db")))
 
 # LLM backend (optional; falls back to deterministic router if none set)
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "auto")  # auto | groq | openai | ollama | none
@@ -25,8 +27,8 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
 
 # Forecast
 FORECAST_HORIZON_DEFAULT = 28
-SAFETY_STOCK_FACTOR = 1.25
-STOCKOUT_THRESHOLD_DAYS = 7
+SERVICE_LEVEL_Z = 1.65  # safety-stock z-score (~95% cycle service level)
+INVENTORY_PROXY_DAYS = 8.0  # only used when a dataset arrives without stock columns
 RANDOM_SEED = 42
 
 # Dataset

@@ -29,7 +29,7 @@ export function Table<T extends Record<string, any>>({
   const cellBase: React.CSSProperties = {
     padding: "10px 12px",
     borderBottom: "1px solid #1f2a3d",
-    overflowWrap: "anywhere",
+    overflowWrap: "break-word", // never split short words such as WARNING or HOUSEHOLD
     verticalAlign: "top",
     fontSize: 13,
   };

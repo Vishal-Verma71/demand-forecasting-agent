@@ -20,7 +20,8 @@
 }
 
 body {
-  background: var(--background);
+  /* Matches the end colour of the dashboard gradient so long pages never show a black band. */
+  background: #0b1020;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }

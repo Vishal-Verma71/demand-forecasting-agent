@@ -23,3 +23,10 @@ Thumbs.db
 frontend/node_modules/
 frontend/.next/
 frontend/out/
+
+# Runtime state (recreated on startup) and local scratch files
+data/supply_chain.db
+data/backups/
+reports_test_tmp/
+Untitled.txt
+.claude/
