@@ -20,6 +20,7 @@ from src.data import load_or_generate
 from src.features import build_series
 from src.llm import backend_name, is_available
 from src.model import models_ready, train_all, forecast_demand, get_metrics, clear_model_cache
+from src.eval import load_evaluation, run_backtest
 from src.trends import query_trend
 
 app = FastAPI(title="Demand Forecasting Agent API", version="1.0.0")
@@ -189,6 +190,20 @@ def agent_endpoint(payload: dict = Body(...)):
 @app.get("/report")
 def report_md():
     return {"markdown": report.build_report()}
+
+
+@app.get("/evaluation")
+def evaluation():
+    result = load_evaluation()
+    if result is None:
+        return {"status": "NOT_RUN", "metrics": None}
+    return {"status": "OK", "metrics": result}
+
+
+@app.post("/evaluation/run")
+def evaluation_run():
+    result = run_backtest(horizon=51, windows=3)
+    return {"status": "OK", "metrics": result}
 
 
 @app.post("/train")

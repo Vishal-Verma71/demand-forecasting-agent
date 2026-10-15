@@ -6,6 +6,7 @@ from datetime import datetime
 from . import inventory
 from .config import STORES, DEPARTMENTS
 from .db import get_alerts, get_pos
+from .eval import load_evaluation
 
 
 def build_report() -> str:
@@ -44,4 +45,20 @@ def build_report() -> str:
     lines.append("## 6. Method")
     lines.append("HistGradientBoostingRegressor (scikit-learn global model). Agent uses ReAct loop with 7 tools,")
     lines.append("supports Groq/OpenAI/Ollama or a fully offline deterministic router. External trend via pytrends (fallback if unavailable).")
+    evaluation = load_evaluation()
+    if evaluation:
+        lines.append("")
+        lines.append("## 7. Chronological Forecast Evaluation")
+        lines.append(f"Dataset: {evaluation['dataset']}")
+        lines.append(f"Holdout period: {evaluation['primary_test_period']['from']} to {evaluation['primary_test_period']['to']}")
+        lines.append(f"Horizon: {evaluation['forecast_horizon']} days; windows: {evaluation['windows']}; test observations: {evaluation['primary_test_observations']}")
+        primary = evaluation["primary_overall_macro"]
+        lines.append("| Model | MAE | RMSE | WAPE | MAPE non-zero |")
+        lines.append("|---|---:|---:|---:|---:|")
+        for model_name in ("naive", "seasonal_naive", "model"):
+            metric = primary[model_name]
+            lines.append(f"| {model_name} | {metric['MAE']} | {metric['RMSE']} | {metric['WAPE']} | {metric['MAPE_nonzero']} |")
+        lines.append(f"Model beats naive: **{primary['model']['MAE'] < primary['naive']['MAE']}**")
+        lines.append(f"Model beats seasonal naive: **{primary['model']['MAE'] < primary['seasonal_naive']['MAE']}**")
+        lines.append(f"Predictions file: {evaluation['files']['predictions']}")
     return "\n".join(lines)

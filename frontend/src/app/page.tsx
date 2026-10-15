@@ -43,6 +43,9 @@ export default function Home() {
   const [reorders, setReorders] = useState<any[]>([]);
   const [pos, setPos] = useState<any[]>([]);
   const [reportMd, setReportMd] = useState("");
+  const [evalData, setEvalData] = useState<any>(null);
+  const [evalLoading, setEvalLoading] = useState(false);
+  const [evalRunning, setEvalRunning] = useState(false);
   const [agentQ, setAgentQ] = useState("");
   const [agentHistory, setAgentHistory] = useState<any[]>([]);
   const [agentLoading, setAgentLoading] = useState(false);
@@ -127,6 +130,29 @@ export default function Home() {
     setReportMd(res.markdown || "");
   }
 
+  async function loadEval() {
+    setEvalLoading(true);
+    try {
+      const res = await fetch(`${API}/evaluation`).then((x) => x.json());
+      setEvalData(res?.metrics ?? null);
+    } finally {
+      setEvalLoading(false);
+    }
+  }
+
+  async function runEvaluation() {
+    setEvalRunning(true);
+    try {
+      const res = await fetch(`${API}/evaluation/run`, { method: "POST" });
+      const j = await res.json();
+      setEvalData(j?.metrics ?? null);
+    } catch {
+      setEvalData(null);
+    } finally {
+      setEvalRunning(false);
+    }
+  }
+
   useEffect(() => {
     fetchAll();
   }, []);
@@ -142,7 +168,10 @@ export default function Home() {
 
   useEffect(() => {
     if (tab === "reorders") loadReorders();
-    if (tab === "report") loadReport();
+    if (tab === "report") {
+      loadReport();
+      loadEval();
+    }
     if (tab === "dashboard") fetchAll();
   }, [tab]);
 
@@ -573,6 +602,52 @@ export default function Home() {
                   a.href = url; a.download = "supply_chain_report.md"; a.click();
                   URL.revokeObjectURL(url);
                 }}>⬇ Download Markdown</button>
+              </div>
+              <div style={{ background: "#0b1220", padding: 14, borderRadius: 12, border: "1px solid #1f2a3d", marginBottom: 12 }}>
+                <h4 style={{ marginTop: 0 }}>Chronological forecast evaluation</h4>
+                <p style={{ color: "#94a3b8", fontSize: 12, margin: "0 0 10px" }}>
+                  Real M5 holdout evaluation with naive, seasonal-naive, and trained-model comparison.
+                </p>
+                <button style={{ ...btn, marginBottom: 10, opacity: evalRunning ? 0.6 : 1 }} onClick={runEvaluation} disabled={evalRunning}>
+                  {evalRunning ? "Running evaluation..." : "Run real evaluation"}
+                </button>
+                <LoadingStatus visible={evalLoading || evalRunning} message={evalRunning ? "Running chronological backtest..." : "Loading evaluation..." } />
+                {evalData ? (
+                  <>
+                    <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 10 }}>
+                      Holdout: {evalData.primary_test_period?.from} to {evalData.primary_test_period?.to}; observations: {evalData.primary_test_observations}; windows: {evalData.windows}
+                    </div>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: "#1e293b" }}>
+                          <th style={{ padding: 8, textAlign: "left" }}>Model</th>
+                          <th style={{ padding: 8, textAlign: "right" }}>MAE</th>
+                          <th style={{ padding: 8, textAlign: "right" }}>RMSE</th>
+                          <th style={{ padding: 8, textAlign: "right" }}>WAPE</th>
+                          <th style={{ padding: 8, textAlign: "right" }}>MAPE</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {["naive", "seasonal_naive", "model"].map((name) => (
+                          <tr key={name} style={{ borderTop: "1px solid #1f2a3d" }}>
+                            <td style={{ padding: 8 }}>{name === "seasonal_naive" ? "seasonal naive" : name}</td>
+                            {["MAE", "RMSE", "WAPE", "MAPE_nonzero"].map((metric) => (
+                              <td key={metric} style={{ padding: 8, textAlign: "right" }}>
+                                {Number(evalData.primary_overall_macro?.[name]?.[metric] || 0).toFixed(4)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 8 }}>
+                      Model beats naive: {String(evalData.primary_overall_macro?.model?.MAE < evalData.primary_overall_macro?.naive?.MAE)}.
+                      Model beats seasonal naive: {String(evalData.primary_overall_macro?.model?.MAE < evalData.primary_overall_macro?.seasonal_naive?.MAE)}.
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ color: "#64748b" }}>No evaluation results yet. Run the real evaluation to compare models.</div>
+                )}
               </div>
               <div style={{ background: "#0b1220", padding: 14, borderRadius: 12, border: "1px solid #1f2a3d", fontSize: 13, maxHeight: 600, overflow: "auto" }}>
                 {renderMarkdown(reportMd)}
