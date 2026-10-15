@@ -54,10 +54,14 @@ tests/                 pytest
 
 ## Data
 - Default: synthetic but realistic Walmart-style store/department daily demand (auto-generated).
-- To use a real dataset, place a CSV at `data/supply_chain_sales.csv` with columns
+- Real dataset support: place the official M5 `sales_train_validation.csv` and
+  `calendar.csv` files under `data/raw/m5/` (plus `sell_prices.csv` only when you
+  want price joins).  The application aggregates M5 daily sales to the existing
+  store/department/date schema and uses it as the primary source whenever those files
+  exist.  Run `python scripts/train.py` after adding them.
+- Legacy CSV support: place a normalized CSV at `data/supply_chain_sales.csv` with columns
   `Store, Dept, Date, Sales, OnHand, Supplier, LeadTime, Promo, Holiday` and rerun
-  `python scripts/train.py`. Kaggle M5 or the Walmart store-sales dataset can be
-  adapted to this schema (a mapping note is in `src/data.py`).
+  `python scripts/train.py`.  The M5 mapping lives in `src/data.py`.
 
 ## Notes
 - Designed to run on 8 GB RAM: models trained once and cached; app loads from cache.

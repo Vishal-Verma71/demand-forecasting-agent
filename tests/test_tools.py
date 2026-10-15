@@ -6,7 +6,7 @@ from datetime import date, timedelta
 import pandas as pd
 
 from src import db, inventory
-from src.data import load_or_generate
+from src.data import load_or_generate, m5_files_available
 
 
 def test_seed_inventory():
@@ -44,7 +44,12 @@ def test_spike():
 
 def test_date_freshness():
     df = load_or_generate()
-    assert df["Date"].max() >= pd.Timestamp(date.today() - timedelta(days=30))
+    if m5_files_available():
+        # Official M5 daily sales span the competition's historical calendar.
+        assert df["Date"].min() == pd.Timestamp("2011-01-29")
+        assert df["Date"].max() == pd.Timestamp("2016-04-24")
+    else:
+        assert df["Date"].max() >= pd.Timestamp(date.today() - timedelta(days=30))
 
 
 def test_supplier_stability():
