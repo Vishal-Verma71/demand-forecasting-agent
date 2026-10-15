@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Table } from "@/components/Table";
-import { LoadingStatus } from "@/components/Spinner";
+import { LoadingStatus, Spinner } from "@/components/Spinner";
 import { HeaderBanner } from "@/components/HeaderBanner";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -44,6 +44,10 @@ export default function Home() {
   const [store, setStore] = useState("CA_1");
   const [dept, setDept] = useState("FOODS");
   const [horizon, setHorizon] = useState(28);
+  // The slider moves horizonDraft instantly; horizon (which triggers requests) follows once the user pauses.
+  const [horizonDraft, setHorizonDraft] = useState(28);
+  const [seriesLoading, setSeriesLoading] = useState(false);
+  const forecastRequestRef = useRef(0);
   const [health, setHealth] = useState<any>(null);
   const [kpi, setKpi] = useState<Kpi | null>(null);
   const [riskItems, setRiskItems] = useState<RiskItem[]>([]);
@@ -111,26 +115,29 @@ export default function Home() {
   }
 
   async function loadSeries() {
-    setForecastLoading(true);
+    setSeriesLoading(true);
     try {
       const res = await fetch(`${API}/series?store=${store}&dept=${dept}&limit=90`);
       const j = await res.json();
       setSeries(j.records || []);
       setSelectedRecentSales(null);
     } finally {
-      setForecastLoading(false);
+      setSeriesLoading(false);
     }
   }
 
   async function loadForecast() {
+    // Only the newest request may update the chart; slower, older responses are dropped.
+    const runId = ++forecastRequestRef.current;
     setForecastLoading(true);
     try {
       const res = await fetch(`${API}/forecast?store=${store}&dept=${dept}&horizon=${horizon}`);
       const j = await res.json();
+      if (runId !== forecastRequestRef.current) return;
       setForecast(j);
       setSelectedForecastPoint(null);
     } finally {
-      setForecastLoading(false);
+      if (runId === forecastRequestRef.current) setForecastLoading(false);
     }
   }
 
@@ -192,6 +199,12 @@ export default function Home() {
   useEffect(() => {
     fetchStatic();
   }, []);
+
+  useEffect(() => {
+    if (horizonDraft === horizon) return;
+    const t = setTimeout(() => setHorizon(horizonDraft), 350);
+    return () => clearTimeout(t);
+  }, [horizonDraft]);
 
   useEffect(() => {
     fetchDashboard(horizon);
@@ -296,6 +309,8 @@ export default function Home() {
       setRiskScanLoading(false);
     }
   }
+
+  const forecastPending = forecastLoading || horizonDraft !== horizon;
 
   const riskBadge = (r: any) => <span style={{ color: riskColor(r.risk_level), fontWeight: 700 }}>{r.risk_level}</span>;
 
@@ -449,8 +464,9 @@ export default function Home() {
                 {DEPTS.map((d) => <option key={d}>{d}</option>)}
               </select>
             </label>
-            <label>Horizon (days): {horizon}
-              <input type="range" min="7" max="56" value={horizon} onChange={(e) => setHorizon(Number(e.target.value))} style={{ width: "100%" }} />
+            <label>Horizon (days): {horizonDraft}
+              {(horizonDraft !== horizon || forecastLoading) && <span style={{ color: "#a5b4fc", fontSize: 12, marginLeft: 6 }}>updating…</span>}
+              <input type="range" min="7" max="56" value={horizonDraft} onChange={(e) => setHorizonDraft(Number(e.target.value))} style={{ width: "100%" }} />
             </label>
             {!health?.models_ready && (
               <button style={btn} onClick={runTrain} disabled={training}>{training ? "Training…" : "🚀 Train model"}</button>
@@ -534,7 +550,7 @@ export default function Home() {
               <div style={card}>
                 <h3 style={{ marginTop: 0 }}>Recent demand — {store} / {dept}</h3>
                 <p style={{ color: "#94a3b8", fontSize: 12, margin: "0 0 8px" }}>Sales units over the last {series.length} days</p>
-                                <LoadingStatus visible={forecastLoading} message="Loading recent demand..." />
+                                <LoadingStatus visible={seriesLoading} message="Loading recent demand..." />
                 {series.length === 0 ? (
                   <div style={{ color: "#64748b" }}>No series data available.</div>
                 ) : (
@@ -636,7 +652,14 @@ export default function Home() {
 
           {tab === "forecast" && forecast && (
             <div style={card}>
-              <h3 style={{ marginTop: 0 }}>Forecast · {store} / {dept} · {horizon} days</h3>
+              <h3 style={{ marginTop: 0, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                Forecast · {store} / {dept} · {forecastPending ? horizonDraft : horizon} days
+                {forecastPending && (
+                  <span role="status" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, color: "#c7d2fe", background: "rgba(99,102,241,.15)", border: "1px solid rgba(129,140,248,.45)" }}>
+                    <Spinner size={12} /> Updating forecast…
+                  </span>
+                )}
+              </h3>
               {forecast.summary && (
                 <div style={{ display: "flex", gap: 24, marginBottom: 12, color: "#cbd5e1" }}>
                   <span>Total: <b>{forecast.summary.total_demand}</b></span>
@@ -652,6 +675,17 @@ export default function Home() {
               )}
               <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 8 }}>Shaded band: {forecast.summary?.interval}. SNAP promotion days and M5 events are model inputs.</div>
               <div style={{ position: "relative" }}>
+              {forecastPending && (
+                <div role="status" aria-live="polite" style={{ position: "absolute", inset: 0, marginBottom: 12, zIndex: 30, borderRadius: 12, display: "grid", placeItems: "center", background: "rgba(11,18,32,.72)", backdropFilter: "blur(2px)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", borderRadius: 12, background: "#111827", border: "1px solid #4f46e5", boxShadow: "0 10px 30px rgba(0,0,0,.5)", color: "#e2e8f0", fontSize: 14 }}>
+                    <Spinner size={20} />
+                    <div>
+                      <div style={{ fontWeight: 700 }}>Forecasting {horizonDraft} days ahead…</div>
+                      <div style={{ color: "#94a3b8", fontSize: 12 }}>Running the LightGBM model for {store} / {dept}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
               <svg width="100%" height="280" viewBox="0 0 640 280" style={{ background: "#0b1220", borderRadius: 12, border: "1px solid #1f2a3d", marginBottom: 12 }}>
                 {(() => {
                   const recs = forecast.records || [];
@@ -711,8 +745,7 @@ export default function Home() {
                 </div>
               )}
               </div>
-              <LoadingStatus visible={forecastLoading} message="Generating demand forecast..." />
-              <Table columns={forecastColumns as any} rows={forecast.records || []} loading={forecastLoading} loadingMessage="Generating demand forecast..." emptyMessage="No forecast available." />
+              <Table columns={forecastColumns as any} rows={forecast.records || []} loading={forecastPending} loadingMessage="Generating demand forecast..." emptyMessage="No forecast available." />
             </div>
           )}
 

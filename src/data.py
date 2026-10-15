@@ -367,7 +367,29 @@ def _m5_is_newer_than_cache(raw_dir: Path, cache_path: Path) -> bool:
         return False
 
 
+_MEMO: dict[str, tuple[float, pd.DataFrame]] = {}
+
+
 def load_or_generate(path: Path = DATA_PATH, force: bool = False, raw_dir: str | Path = M5_RAW_DIR) -> pd.DataFrame:
+    """Return the store/department sales table, memoised in memory per file version.
+
+    Risk scans call this once per series, so re-reading the CSV each time made every
+    dashboard refresh take seconds.  A copy is returned so callers cannot mutate the cache.
+    """
+    path = Path(path)
+    key = str(path.resolve())
+    if not force and path.exists():
+        mtime = path.stat().st_mtime
+        hit = _MEMO.get(key)
+        if hit is not None and hit[0] == mtime:
+            return hit[1].copy()
+    df = _load_or_generate_uncached(path, force, raw_dir)
+    if path.exists():
+        _MEMO[key] = (path.stat().st_mtime, df)
+    return df.copy()
+
+
+def _load_or_generate_uncached(path: Path, force: bool, raw_dir: str | Path) -> pd.DataFrame:
     raw = Path(raw_dir)
 
     if not force and path.exists():
