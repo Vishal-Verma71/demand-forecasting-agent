@@ -46,8 +46,11 @@ def get_df():
 
 def _prewarm_model_cache():
     try:
+        # Build the full interface-horizon forecast once per series so arbitrary slider values
+        # reuse cached recursive predictions instead of re-running the expensive forecast path.
         for s in STORES:
             for d in DEPARTMENTS:
+                forecast_demand(s, d, 56)
                 inventory.stock_status(s, d, 28)
     except Exception:
         pass
@@ -114,8 +117,8 @@ def alerts(limit: int = 50):
 
 
 @app.post("/risk-scan")
-def risk_scan():
-    a = inventory.run_risk_scan()
+def risk_scan(horizon: int = 28):
+    a = inventory.run_risk_scan(horizon)
     return {"flagged": len(a), "items": a}
 
 

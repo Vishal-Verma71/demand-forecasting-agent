@@ -92,11 +92,11 @@ def detect_demand_spike(store: str, dept: str, window: int = 90) -> dict:
                 change_pct=round(float(pct), 1))
 
 
-def run_risk_scan() -> list[dict]:
+def run_risk_scan(horizon: int = 28) -> list[dict]:
     alerts = []
     for store in ["CA_1", "CA_2", "TX_1", "TX_2", "WI_1"]:
         for dept in ["FOODS", "HOBBIES", "HOUSEHOLD"]:
-            st = stock_status(store, dept)
+            st = stock_status(store, dept, horizon)
             if st["risk_level"] in ("CRITICAL", "WARNING"):
                 add_alert(store, dept, st["risk_level"],
                           f"{store}/{dept}: {st['days_of_supply']} days of supply (on hand {st['on_hand']}, daily demand {st['avg_daily_demand']})")

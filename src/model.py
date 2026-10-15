@@ -78,17 +78,24 @@ def train_model(df: pd.DataFrame = None, holdout_days: int = 28):
     return bundle
 
 
-@lru_cache(maxsize=256)
-def forecast_demand(store: str, dept: str, horizon: int = 28) -> pd.DataFrame:
+_FORECAST_CACHE = {}
+_MAX_FORECAST_HORIZON = 56
+
+
+def _forecast_future(store: str, dept: str, horizon: int) -> tuple[list[float], pd.DatetimeIndex]:
+    """Generate exactly ``horizon`` future predictions for one store/department series."""
     bundle = _load_bundle()
     model = bundle["model"]
     base_df = load_or_generate()
     sub = base_df[(base_df["Store"] == store) & (base_df["Dept"] == dept)].sort_values("Date").copy()
+
+    # Histogram/holiday mappings can use any calendar information known in advance, but
+    # no target observations from horizon dates may enter the recursive history.
     last_date = sub["Date"].max()
     fut_dates = pd.date_range(last_date + pd.Timedelta(days=1), periods=horizon, freq="D")
-    # Keep only the recent history needed for lag_28/rolling features.
     hist = sub.tail(45).copy().reset_index(drop=True)
     preds = []
+
     for d in fut_dates:
         new_row = {"Store": store, "Dept": dept, "Date": d, "Sales": np.nan,
                    "OnHand": hist["OnHand"].iloc[-1], "Promo": 0,
@@ -101,10 +108,27 @@ def forecast_demand(store: str, dept: str, horizon: int = 28) -> pd.DataFrame:
         p = max(0.0, p)
         preds.append(p)
         hist.loc[hist.index[-1], "Sales"] = p
-        # Keep the sliding window bounded.
         if len(hist) > 45:
             hist = hist.tail(45).reset_index(drop=True)
-    out = pd.DataFrame({"Date": fut_dates, "yhat": preds})
+
+    return preds, fut_dates
+
+
+def forecast_demand(store: str, dept: str, horizon: int = 28) -> pd.DataFrame:
+    # A single forward pass up to the interfrace maximum horizon supports every slider value
+    # by prefix, so changing the horizon does not re-run the recursive forecast.
+    target_horizon = max(horizon, _MAX_FORECAST_HORIZON)
+    cache_key = (store, dept)
+    cached_horizon, cached_predictions, cached_dates = _FORECAST_CACHE.get(cache_key, (0, [], pd.DatetimeIndex([])))
+    if cached_horizon < target_horizon:
+        predictions, dates = _forecast_future(store, dept, target_horizon)
+        _FORECAST_CACHE[cache_key] = (target_horizon, predictions, dates)
+    else:
+        predictions, dates = _FORECAST_CACHE[cache_key][1], _FORECAST_CACHE[cache_key][2]
+
+    predictions = predictions[:horizon]
+    dates = dates[:horizon]
+    out = pd.DataFrame({"Date": dates, "yhat": predictions})
     out["yhat_lower"] = (out["yhat"] * 0.82).clip(lower=0)
     out["yhat_upper"] = out["yhat"] * 1.18
     return out
@@ -133,3 +157,4 @@ def clear_model_cache():
         forecast_demand.cache_clear()
     except AttributeError:
         pass
+    _FORECAST_CACHE.clear()

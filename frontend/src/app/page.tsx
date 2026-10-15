@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Table } from "@/components/Table";
 import { LoadingStatus } from "@/components/Spinner";
 
@@ -57,22 +57,36 @@ export default function Home() {
   const [riskScanLoading, setRiskScanLoading] = useState(false);
   const [riskScanMessage, setRiskScanMessage] = useState("");
   const [trendLoading, setTrendLoading] = useState(false);
+  const dashboardRequestRef = useRef(0);
 
-  async function fetchAll() {
-    setDashboardLoading(true);
+  async function fetchStatic() {
     try {
-      const [h, k, r, a] = await Promise.all([
+      const [h, a] = await Promise.all([
         fetch(`${API}/health`).then((x) => x.json()),
-        fetch(`${API}/kpi?horizon=${horizon}`).then((x) => x.json()),
-        fetch(`${API}/dashboard/risk?horizon=${horizon}`).then((x) => x.json()),
         fetch(`${API}/alerts`).then((x) => x.json()),
       ]);
       setHealth(h);
+      setAlerts(a.alerts || []);
+    } catch {
+      /* Static dashboard data is optional after the first render. */
+    }
+  }
+
+  async function fetchDashboard(horizonValue = horizon) {
+    const runId = ++dashboardRequestRef.current;
+    setDashboardLoading(true);
+    try {
+      const [k, r] = await Promise.all([
+        fetch(`${API}/kpi?horizon=${horizonValue}`).then((x) => x.json()),
+        fetch(`${API}/dashboard/risk?horizon=${horizonValue}`).then((x) => x.json()),
+      ]);
+      if (runId !== dashboardRequestRef.current) return;
       setKpi(k);
       setRiskItems(r.items || []);
-      setAlerts(a.alerts || []);
+    } catch {
+      if (runId === dashboardRequestRef.current) setDashboardLoading(false);
     } finally {
-      setDashboardLoading(false);
+      if (runId === dashboardRequestRef.current) setDashboardLoading(false);
     }
   }
 
@@ -154,15 +168,19 @@ export default function Home() {
   }
 
   useEffect(() => {
-    fetchAll();
+    fetchStatic();
+    fetchDashboard();
   }, []);
 
   useEffect(() => {
-    fetchAll();
+    fetchDashboard(horizon);
   }, [horizon]);
 
   useEffect(() => {
     loadSeries();
+  }, [store, dept]);
+
+  useEffect(() => {
     loadForecast();
   }, [store, dept, horizon]);
 
@@ -172,7 +190,7 @@ export default function Home() {
       loadReport();
       loadEval();
     }
-    if (tab === "dashboard") fetchAll();
+    if (tab === "dashboard") fetchDashboard();
   }, [tab]);
 
   useEffect(() => {
@@ -204,7 +222,8 @@ export default function Home() {
     setTraining(true);
     try {
       await fetch(`${API}/train`, { method: "POST" });
-      await fetchAll();
+      await fetchStatic();
+      await fetchDashboard(horizon);
     } finally {
       setTraining(false);
     }
@@ -228,9 +247,9 @@ export default function Home() {
     setRiskScanLoading(true);
     setRiskScanMessage("");
     try {
-      const res = await fetch(`${API}/risk-scan`, { method: "POST" });
+      const res = await fetch(`${API}/risk-scan?horizon=${horizon}`, { method: "POST" });
       const j = await res.json();
-      await fetchAll();
+      await fetchDashboard(horizon);
       setRiskScanMessage(`Scanned inventory risks: ${j.flagged ?? 0} risks detected.`);
     } catch (e) {
       setRiskScanMessage("Risk scan failed. Please retry.");
