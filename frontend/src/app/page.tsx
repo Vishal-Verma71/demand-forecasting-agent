@@ -59,6 +59,8 @@ export default function Home() {
   const [reorders, setReorders] = useState<any[]>([]);
   const [pos, setPos] = useState<any[]>([]);
   const [reportMd, setReportMd] = useState("");
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState("");
   const [poStoreFilter, setPoStoreFilter] = useState("ALL");
   const [poDeptFilter, setPoDeptFilter] = useState("ALL");
   const [poStatusFilter, setPoStatusFilter] = useState("ALL");
@@ -169,8 +171,18 @@ export default function Home() {
   }
 
   async function loadReport() {
-    const res = await fetch(`${API}/report`).then((x) => x.json());
-    setReportMd(res.markdown || "");
+    setReportLoading(true);
+    setReportError("");
+    try {
+      const res = await fetch(`${API}/report`);
+      if (!res.ok) throw new Error(`report request failed (${res.status})`);
+      const j = await res.json();
+      setReportMd(j.markdown || "");
+    } catch (e: any) {
+      setReportError(String(e.message || e));
+    } finally {
+      setReportLoading(false);
+    }
   }
 
   async function loadEval() {
@@ -787,7 +799,7 @@ export default function Home() {
             <div style={card}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
                 <h3 style={{ margin: 0 }}>Auto-generated report</h3>
-                <button style={btn} onClick={() => {
+                <button style={{ ...btn, opacity: reportLoading || !reportMd ? 0.5 : 1 }} disabled={reportLoading || !reportMd} onClick={() => {
                   const blob = new Blob([reportMd], { type: "text/markdown" });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
@@ -842,7 +854,13 @@ export default function Home() {
                 )}
               </div>
               <div style={{ background: "#0b1220", padding: 14, borderRadius: 12, border: "1px solid #1f2a3d", fontSize: 13, maxHeight: 600, overflow: "auto" }}>
-                {renderMarkdown(reportMd)}
+                {reportLoading ? (
+                  <LoadingStatus visible message="Generating the supply-chain report (risk snapshot, reorders, POs, evaluation)…" />
+                ) : reportError ? (
+                  <div style={{ color: "#f87171" }}>Could not generate the report: {reportError}. <button style={{ ...btn, padding: "4px 10px", fontSize: 12, marginLeft: 8 }} onClick={loadReport}>Retry</button></div>
+                ) : (
+                  renderMarkdown(reportMd)
+                )}
               </div>
             </div>
           )}

@@ -39,7 +39,15 @@ used. Components are summarised in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Quickstart
 
-**Prerequisites:** Python 3.10+ and Node.js 20+.
+**Prerequisites:** Python 3.10–3.12 and Node.js 20+.
+
+> **Tested on:** Windows 11, Python 3.12.4, Node.js 24, with pandas 2.1, numpy 1.26,
+> scikit-learn 1.5, LightGBM 4.6 and FastAPI 0.139. It was verified from a fresh clone of this
+> repo: all tests pass, the backend starts, and the frontend installs and builds.
+>
+> **macOS:** LightGBM needs OpenMP. Run `brew install libomp` once before `pip install`.
+> **Linux:** if `import lightgbm` fails, install `libgomp1` (Debian/Ubuntu: `sudo apt install libgomp1`).
+> A virtual environment (`python -m venv .venv`) is recommended.
 
 ```bash
 pip install -r requirements.txt
