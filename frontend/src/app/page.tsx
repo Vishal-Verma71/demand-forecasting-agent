@@ -815,17 +815,17 @@ export default function Home() {
                           <th style={{ padding: 8, textAlign: "left" }}>Model</th>
                           <th style={{ padding: 8, textAlign: "right" }}>MAE</th>
                           <th style={{ padding: 8, textAlign: "right" }}>RMSE</th>
-                          <th style={{ padding: 8, textAlign: "right" }}>WAPE</th>
-                          <th style={{ padding: 8, textAlign: "right" }}>MAPE</th>
+                          <th style={{ padding: 8, textAlign: "right" }}>WAPE (%)</th>
+                          <th style={{ padding: 8, textAlign: "right" }}>MAPE (%)</th>
                         </tr>
                       </thead>
                       <tbody>
                         {["naive", "seasonal_naive", "model"].map((name) => (
                           <tr key={name} style={{ borderTop: "1px solid #1f2a3d" }}>
-                            <td style={{ padding: 8 }}>{name === "seasonal_naive" ? "seasonal naive" : name}</td>
+                            <td style={{ padding: 8 }}>{name === "seasonal_naive" ? "Seasonal naive (same day last week)" : name === "naive" ? "Naive (yesterday repeated)" : "LightGBM model"}</td>
                             {["MAE", "RMSE", "WAPE", "MAPE_nonzero"].map((metric) => (
                               <td key={metric} style={{ padding: 8, textAlign: "right" }}>
-                                {Number(evalData.primary_overall_macro?.[name]?.[metric] || 0).toFixed(4)}
+                                {Number(evalData.primary_overall_macro?.[name]?.[metric] || 0).toFixed(1)}
                               </td>
                             ))}
                           </tr>

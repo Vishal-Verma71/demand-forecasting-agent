@@ -5,8 +5,12 @@ detects series that will run out before their next scheduled delivery and explai
 promotions, demand spikes and Google Trends. It then sizes expedite orders, splits them across
 suppliers, and drafts purchase orders for a human to approve.
 
-Read **[docs/REPORT.md](docs/REPORT.md)** for the full write-up (problem, workflow, model,
-evaluation, AI tools) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the components.
+Read **[docs/REPORT.md](docs/REPORT.md)** (or the PDF, [docs/REPORT.pdf](docs/REPORT.pdf)) for the
+full write-up: problem, workflow, model, evaluation with charts, UI screenshots, a 5-minute demo
+walkthrough and the AI tools used. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) covers the
+components.
+
+![Dashboard](docs/images/dashboard.png)
 
 ## Highlights
 - **ML tool:** a global LightGBM model with SNAP-promotion and event features, forecast
@@ -59,7 +63,7 @@ loop, backtest leakage and the trend fallback. Each test uses its own temporary 
 ```
 src/            data, model, eval, inventory, trends, tools, agent, db, api, report
 frontend/       Next.js dashboard
-scripts/        train.py (model + backtest)
+scripts/        train.py (model + backtest), plot_accuracy.py, build_report_pdf.py
 data/           processed M5 table, future calendar
 reports/        backtest metrics + predictions
 docs/           REPORT.md, ARCHITECTURE.md
@@ -69,4 +73,4 @@ tests/          pytest suite
 ## AI tools leveraged
 OpenCode (Claude) and Claude Code (Claude Opus) for development, review and fixes. LightGBM,
 pandas, pytrends, FastAPI and Next.js for the system itself. Groq, OpenAI or Ollama LLMs serve
-as the optional agent planner. See section 9 of the report.
+as the optional agent planner. See section 10 of the report.

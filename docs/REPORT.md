@@ -34,25 +34,25 @@ human to approve.
 | Supplier allocations | `allocate_suppliers`: urgent units go to the fastest supplier, the rest to the best cost/reliability supplier that can still deliver in time |
 | Report on architecture and workflow | this document and `docs/ARCHITECTURE.md` |
 | Bonus: UI/UX to run the agent | Next.js dashboard (`frontend/`): risk map, agent chat with reasoning trace, forecast chart, reorders and PO approval, report |
-| AI tools used | Section 9 |
+| AI tools used | Section 10 |
 
 ## 3. Architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
   subgraph UI[Next.js dashboard]
-    D[Risk map + KPIs] --- C[Agent chat + trace] --- R[Reorders / PO approval] --- F[Forecast + report]
+    direction LR
+    D[Risk map + KPIs] ~~~ C[Agent chat + trace] ~~~ R[Reorders + PO approval] ~~~ F[Forecast + report]
   end
-  UI -->|REST| API[FastAPI src/api.py]
-  API --> AG[Agent src/agent.py]
-  AG -->|LLM tool calling: Groq / OpenAI / Ollama| LLM[(LLM)]
-  AG -->|offline planner| T
-  AG --> T[9 tools src/tools.py]
-  T --> M[LightGBM forecaster src/model.py]
-  T --> INV[Risk, reorder, allocation src/inventory.py]
-  T --> TR[Google Trends src/trends.py]
-  INV --> DB[(SQLite: inventory, alerts, POs)]
+  UI -->|REST| API[FastAPI · src/api.py]
+  API --> AG[Agent · src/agent.py]
+  AG <-->|tool calling, optional| LLM[(LLM: Groq / OpenAI / Ollama)]
+  AG -->|LLM or offline planner| T[9 tools · src/tools.py]
+  T --> M[LightGBM forecaster · src/model.py]
+  T --> INV[Risk, reorder, allocation · src/inventory.py]
+  T --> TR[Google Trends · src/trends.py]
   M --> DATA[(M5 sales + calendar)]
+  INV --> DB[(SQLite: inventory, alerts, POs)]
 ```
 
 **Planners.** With an API key (Groq is free) the LLM chooses the tools using OpenAI-compatible
@@ -79,7 +79,7 @@ sequenceDiagram
   end
   A-->>P: Ranked summary with context + Draft PO ids
   P->>T: Approve / Reject in Reorders tab
-  T-->>A: Approved qty becomes inbound stock; next scan shows OK
+  T-->>A: Approved qty becomes inbound stock, so the next scan shows OK
 ```
 
 Example output (offline planner, real data):
@@ -142,6 +142,16 @@ TX_1/HOUSEHOLD, and on TX_2/FOODS (12.9% vs 11.6% WAPE), which is the first thin
 investigate next. HOBBIES is the hardest department (10–15% WAPE): it has low volume and
 higher noise.
 
+![Forecast error by store/department: LightGBM vs seasonal-naive](images/accuracy_by_series.png)
+
+*Most recent 28-day window. Each row is one series; the grey bar is the error gap between the
+baseline (orange diamond) and LightGBM (blue circle). The bottom three rows are the series
+where the baseline is slightly better. Regenerate with `python scripts/plot_accuracy.py`.*
+
+The same results as they appear in the app's Report tab:
+
+![Backtest evaluation in the app](images/evaluation.png)
+
 ## 7. Risk, reorder and allocation logic
 
 Because the store orders weekly, stock has to last until the order placed at the next review
@@ -151,13 +161,16 @@ arrives. This window is the *protection interval*.
 inventory_position = on_hand + on_order
 protection_days    = days_to_next_review + supplier_lead_time
 protection_demand  = Σ LightGBM forecast over protection_days
-safety_stock       = z · σ_daily · √protection_days      (z = 1.65 ≈ 95% service; σ from week-over-week changes)
+safety_stock       = z · σ_daily · √protection_days
 reorder_point      = protection_demand + safety_stock
 
 CRITICAL  position < protection_demand    → runs out before the next scheduled delivery
 WARNING   position < reorder_point        → will dip into safety stock
 OK        otherwise
 ```
+
+Here z = 1.65 targets about a 95% cycle service level, and σ_daily is estimated from
+week-over-week changes in sales, so the regular weekly pattern doesn't inflate it.
 
 * **Expedite quantity:** `reorder_point − position`, rounded up. This tops the series back up so
   the routine weekly order takes over again. OK series get no order.
@@ -170,19 +183,54 @@ OK        otherwise
 
 ## 8. UI/UX
 
-A Next.js 16 + FastAPI app:
+A Next.js 16 + FastAPI app. All screenshots are from the running app on real M5 data.
 
-* **Dashboard:** KPI cards, a risk map (on hand, inbound, reorder point, days of cover vs days
-  needed, and the date stock runs out with no delivery), a risk feed with a one-click "Ask the
-  agent to plan replenishment" button, a live Google Trends widget, and a recent-demand chart.
-* **Agent:** chat with suggestion chips and an expandable reasoning trace for every tool call.
-* **Forecast:** a 7–56-day forecast with the empirical 80% band, and backtest MAPE/MAE for that
-  series next to the seasonal-naive baseline.
-* **Reorders:** recommendations with the supplier split and rationale, a Draft PO button, and a
-  PO table with Approve / Reject.
-* **Report:** chronological evaluation, and a generated Markdown supply-chain report with download.
+### Dashboard
+KPI cards, model and planner status, and a risk map for all 15 series: on hand, inbound,
+reorder point, days of cover vs days needed, and the date stock runs out with no delivery.
+Below it sit a risk feed with a one-click "Ask the agent to plan replenishment" button, a live
+Google Trends widget, and a recent-demand chart.
 
-## 9. AI tools leveraged
+![Dashboard](images/dashboard.png)
+
+### Agent
+Chat with suggestion chips. Every answer has an expandable reasoning trace showing each
+step's thought, the tool called with its arguments, and the full observation. Here, "Plan
+replenishment" runs 22 tool calls across the at-risk series.
+
+![Agent running the replenishment workflow](images/agent.png)
+
+### Forecast
+A 7–56-day forecast. The darker cap on each bar is the empirical 80% upper band; the
+backtest error for this series appears next to the seasonal-naive baseline. Moving the horizon
+slider shows an "Updating forecast" overlay until the new forecast arrives.
+
+![Forecast tab](images/forecast.png)
+
+### Reorders and purchase-order approval
+Expedite recommendations with the supplier split and a full rationale, then the purchase
+orders the agent drafted, which a planner approves or rejects. (The eight OK series, which
+need no order, are trimmed from this image.)
+
+![Reorder recommendations and PO approval](images/reorders.png)
+
+## 9. Demo walkthrough (5 minutes)
+
+1. **Start it:** `python -m uvicorn src.api:app --port 8000`, then `npm --prefix frontend run dev`,
+   and open http://localhost:3000.
+2. **Dashboard:** the risk map shows which series run out before their next delivery
+   (2 CRITICAL, 6 WARNING on the M5 data).
+3. **Agent:** click "Plan replenishment". Open the reasoning trace to see the agent scan, forecast,
+   check promotions, spikes and Google Trends, then draft supplier-split POs.
+4. **Reorders:** approve the drafted POs. Back on the Dashboard, the at-risk count drops, because
+   approved quantities become inbound stock.
+5. **Forecast and Report:** change the horizon to see the forecast and its 80% band. The Report
+   tab shows the backtest against both baselines and a downloadable supply-chain report.
+
+Optional: put a free `GROQ_API_KEY` in `.env` and restart the backend. The same questions are
+then planned by an LLM choosing the tools itself.
+
+## 10. AI tools leveraged
 
 * **OpenCode (Claude):** scaffolding, refactoring and code review during the build.
 * **Claude Code (Claude Opus):** a requirements review and bug-fix pass. It ran the app end to
@@ -192,7 +240,7 @@ A Next.js 16 + FastAPI app:
 * **LLM planner (optional):** Groq `llama-3.3-70b-versatile` (free tier), OpenAI `gpt-4o-mini`, or a
   local Ollama model, all through the OpenAI-compatible client.
 
-## 10. Limitations and next steps
+## 11. Limitations and next steps
 
 * Inventory and supplier data are simulated or assumed, because M5 has none. A real deployment
   would read on-hand and inbound stock from the WMS/ERP. The risk engine only needs those
