@@ -49,8 +49,15 @@ def make_regressor() -> LGBMRegressor:
     return LGBMRegressor(**MODEL_PARAMS)
 
 
+_TRAIN_LOCK = threading.Lock()
+
+
 @lru_cache(maxsize=1)
 def _load_bundle():
+    # A fresh clone has no trained model (models/ is gitignored), so train once on first use.
+    with _TRAIN_LOCK:
+        if not MODEL_PATH.exists():
+            train_model()
     return joblib.load(MODEL_PATH)
 
 

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pandas as pd
-import numpy as np
 
 
 def build_series(df: pd.DataFrame, store: str, dept: str) -> pd.DataFrame:
@@ -18,10 +17,3 @@ def build_series(df: pd.DataFrame, store: str, dept: str) -> pd.DataFrame:
     sub["roll_7"] = sub["Sales"].rolling(7).mean()
     sub["roll_28"] = sub["Sales"].rolling(28).mean()
     return sub
-
-
-def train_test_split_time(df: pd.DataFrame, holdout_days: int = 28):
-    cutoff = df["Date"].max() - pd.Timedelta(days=holdout_days)
-    train = df[df["Date"] <= cutoff].copy()
-    test = df[df["Date"] > cutoff].copy()
-    return train, test

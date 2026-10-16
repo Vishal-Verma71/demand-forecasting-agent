@@ -2,7 +2,6 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from datetime import date, timedelta
 import pandas as pd
 import pytest
 
@@ -45,12 +44,10 @@ def test_spike():
 
 def test_date_freshness():
     df = load_or_generate()
-    if m5_files_available():
-        # Official M5 daily sales span the competition's historical calendar.
-        assert df["Date"].min() == pd.Timestamp("2011-01-29")
-        assert df["Date"].max() == pd.Timestamp("2016-04-24")
-    else:
-        assert df["Date"].max() >= pd.Timestamp(date.today() - timedelta(days=30))
+    # The committed table is M5-derived, so with or without the raw download the data spans
+    # the competition's historical calendar.
+    assert df["Date"].min() == pd.Timestamp("2011-01-29")
+    assert df["Date"].max() == pd.Timestamp("2016-04-24")
 
 
 def test_supplier_stability():
@@ -91,9 +88,20 @@ def test_trend_offline_fallback_reports_no_numbers(monkeypatch):
 def testDiagnosticCountsAreBalancedAcrossSelectedStores():
     from src.data import data_diagnostics
     d = data_diagnostics()
-    assert set(d["m5_selected_item_rows_by_store"]) == {"CA_1", "CA_2", "TX_1", "TX_2", "WI_1"}
+    if m5_files_available():  # raw item-level counts need the (uncommitted) M5 download
+        assert set(d["m5_selected_item_rows_by_store"]) == {"CA_1", "CA_2", "TX_1", "TX_2", "WI_1"}
     assert len(set(d["cached_rows_by_store"].values())) == 1
     assert d["cached_rows_by_store"]["CA_1"] == 5739
+
+
+def test_forced_rebuild_without_raw_m5_keeps_real_data(tmp_path):
+    import shutil
+    from src.data import DATA_PATH
+    cache = tmp_path / "sales.csv"
+    shutil.copy(DATA_PATH, cache)
+    df = load_or_generate(path=cache, force=True, raw_dir=tmp_path / "no_m5_here")
+    assert df["Date"].min() == pd.Timestamp("2011-01-29")   # still M5, not the synthetic fallback
+    assert df["Date"].max() == pd.Timestamp("2016-04-24")
 
 
 def testRiskScanCompletesSuccessfully():

@@ -391,6 +391,10 @@ def load_or_generate(path: Path = DATA_PATH, force: bool = False, raw_dir: str |
 
 def _load_or_generate_uncached(path: Path, force: bool, raw_dir: str | Path) -> pd.DataFrame:
     raw = Path(raw_dir)
+    # Without the raw M5 download (not in the repo) a forced rebuild must reuse the committed
+    # M5-derived CSV; otherwise it would silently replace real data with the synthetic fallback.
+    if force and path.exists() and not m5_files_available(raw):
+        force = False
 
     if not force and path.exists():
         force_from_m5 = m5_files_available(raw) and _m5_is_newer_than_cache(raw, path)
