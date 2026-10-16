@@ -66,7 +66,7 @@ TEMPLATE = """<!doctype html>
   <p>LightGBM demand forecasts on Walmart M5 data, forecast-driven stockout detection, supplier
      allocation and human-approved purchase orders, orchestrated by an agent.</p>
   <div class="chips"><span>Kaggle M5</span><span>LightGBM</span><span>Agentic workflow · 9 tools</span>
-     <span>FastAPI + Next.js</span><span>48 tests</span></div>
+     <span>FastAPI + Next.js</span><span>49 tests</span></div>
 </div>
 <div id="content"></div>
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
